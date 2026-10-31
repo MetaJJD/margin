@@ -1,6 +1,6 @@
 /* Margin service worker: makes the app open and work without internet.
    Change VERSION whenever you upload a new index.html, so every iPad picks it up. */
-const VERSION = "margin-v2";
+const VERSION = "margin-v3";
 
 const APP_FILES = [
   "./",
