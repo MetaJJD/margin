@@ -418,6 +418,16 @@ html, body { touch-action: pan-x pan-y; }
 .doc-actions-row .select { height: 34px; width: auto; font-size: 14px; }
 .doc-open.current b::after { content: "  Open now"; color: var(--accent); font-weight: 500; font-size: 12px; }
 @media (max-width: 520px) { .lib-bar { flex-direction: column; } }
+.tpl .gridp { background: repeating-linear-gradient(90deg, transparent 0 6px, #c7d4e4 6px 7px), repeating-linear-gradient(180deg, transparent 0 6px, #c7d4e4 6px 7px), #fff; }
+.tpl .dotsp { background: radial-gradient(circle, #9aa6b6 0.9px, transparent 1.2px) 0 0 / 7px 7px, #fff; }
+.tpl .cornellp { background: linear-gradient(180deg, transparent 12px, #7b8ca3 12px, #7b8ca3 13px, transparent 13px), linear-gradient(0deg, transparent 18px, #7b8ca3 18px, #7b8ca3 19px, transparent 19px), linear-gradient(90deg, transparent 18px, #7b8ca3 18px, #7b8ca3 19px, transparent 19px) 0 13px / 100% calc(100% - 32px) no-repeat, #fff; }
+.thumb .tmore { position: absolute; right: 10px; bottom: 26px; width: 28px; height: 28px; border-radius: 50%; background: color-mix(in srgb, var(--bar) 92%, transparent); box-shadow: 0 1px 4px rgba(0,0,0,.25); display: grid; place-items: center; color: var(--fg); cursor: pointer; }
+.thumb .tmore svg { width: 16px; height: 16px; fill: currentColor; }
+#pageOpsPop { width: min(260px, calc(100vw - 16px)); padding: 6px; gap: 2px; }
+#pageOpsPop .pop-label { padding: 6px 10px 2px; }
+.menu-item.danger b, .menu-item.danger svg { color: var(--danger); stroke: var(--danger); }
+.menu-item.armed { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.menu-item:disabled { opacity: .4; cursor: default; }
 .zwin.docked { border-radius: 0; border-left: 0; border-right: 0; box-shadow: 0 -6px 24px rgba(10,20,40,.18); }
 
 .tool[aria-pressed="true"]#zoomBoxBtn { background: var(--bar); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
@@ -449,7 +459,7 @@ html, body { touch-action: pan-x pan-y; }
 .seg button { flex: 1; height: 36px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; font-weight: 500; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--bar); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 .seg button:disabled { opacity: .45; cursor: default; }
-.templates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
 .tpl { border: 1.5px solid var(--line); border-radius: 12px; background: transparent; padding: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; font-weight: 500; }
 .tpl[aria-pressed="true"] { border-color: var(--accent); background: var(--chip-on); }
 .tpl .sheet-mini { width: 62px; height: 84px; background: #fff; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
@@ -609,7 +619,10 @@ html, body { touch-action: pan-x pan-y; }
         <span>Page template</span>
         <div class="templates" id="pfTpl" role="group" aria-label="Page template">
           <button class="tpl" type="button" data-v="blank" aria-pressed="false"><i class="sheet-mini"></i>Blank</button>
-          <button class="tpl" type="button" data-v="lined" aria-pressed="true"><i class="sheet-mini lined"></i>Lined paper</button>
+          <button class="tpl" type="button" data-v="lined" aria-pressed="true"><i class="sheet-mini lined"></i>Lined</button>
+          <button class="tpl" type="button" data-v="grid" aria-pressed="false"><i class="sheet-mini gridp"></i>Grid</button>
+          <button class="tpl" type="button" data-v="dots" aria-pressed="false"><i class="sheet-mini dotsp"></i>Dotted</button>
+          <button class="tpl" type="button" data-v="cornell" aria-pressed="false"><i class="sheet-mini cornellp"></i>Cornell</button>
         </div>
       </div>
       <label class="field" id="countField"><span>Number of pages</span><input class="input" id="pfCount" type="number" inputmode="numeric" min="1" max="200" step="1" value="1"></label>
@@ -731,6 +744,8 @@ html, body { touch-action: pan-x pan-y; }
   </form>
   <button class="menu-item" id="bmBtn" type="button" role="menuitem" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></svg><span><b id="bmLabel">Add to favorites</b><small>Find it fast in Search and the Pages sidebar</small></span></button>
   <button class="menu-item" id="addPageBtn" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14h6"/></svg><span><b>Add a page</b><small>Blank or lined, after this one or at the end</small></span></button>
+  <button class="menu-item" id="pmDup" type="button" role="menuitem"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="1.5"/><path d="M16 8V5a1.5 1.5 0 0 0-1.5-1.5h-9A1.5 1.5 0 0 0 4 5v11a1.5 1.5 0 0 0 1.5 1.5H8"/></svg><span><b>Duplicate this page</b><small>A copy with all its notes, right after it</small></span></button>
+  <button class="menu-item danger" id="pmDel" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span><b>Delete this page</b><small>Removes the page and its notes</small></span></button>
   <button class="menu-item" id="insPageNum" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M10 7h4M11 16.5l1.5-1.5v4"/></svg><span><b>Page numbers</b><small>Number every page automatically</small></span></button>
 </div>
 
@@ -804,6 +819,14 @@ html, body { touch-action: pan-x pan-y; }
 
 <input type="color" id="colorInput" class="color-input" tabindex="-1" aria-hidden="true">
 <input type="file" id="backupInput" accept=".json,application/json" hidden>
+<div class="pop" id="pageOpsPop" hidden role="menu" aria-label="Page actions">
+  <div class="pop-label" id="poTitle">Page</div>
+  <button class="menu-item" id="poDup" type="button" role="menuitem"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="1.5"/><path d="M16 8V5a1.5 1.5 0 0 0-1.5-1.5h-9A1.5 1.5 0 0 0 4 5v11a1.5 1.5 0 0 0 1.5 1.5H8"/></svg><span><b>Duplicate</b></span></button>
+  <button class="menu-item" id="poUp" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg><span><b>Move earlier</b></span></button>
+  <button class="menu-item" id="poDown" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg><span><b>Move later</b></span></button>
+  <button class="menu-item danger" id="poDel" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span><b>Delete page</b></span></button>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -3423,9 +3446,29 @@ const pf = { mode: "new", orient: "portrait", tpl: "lined", pos: "after" };
 try { const s = JSON.parse(localStorage.getItem("margin-page") || "{}"); if (s.tpl) pf.tpl = s.tpl; if (s.size) pf.size = s.size; if (s.orient) pf.orient = s.orient; } catch (e) {}
 
 function drawTemplate(page, tpl) {
-  if (tpl !== "lined") return;
   const { rgb } = PDFLib;
   const { width, height } = page.getSize();
+  if (tpl === "grid") {
+    const g = 5 * MM, c = rgb(0.78, 0.84, 0.91);
+    for (let x = g; x < width; x += g) page.drawLine({ start: { x, y: 0 }, end: { x, y: height }, thickness: 0.35, color: c });
+    for (let y = height - g; y > 0; y -= g) page.drawLine({ start: { x: 0, y }, end: { x: width, y }, thickness: 0.35, color: c });
+    return;
+  }
+  if (tpl === "dots") {
+    const g = 5 * MM, c = rgb(0.62, 0.67, 0.74);
+    for (let x = g; x < width - 1; x += g) for (let y = height - g; y > 1; y -= g) page.drawCircle({ x, y, size: 0.55, color: c });
+    return;
+  }
+  if (tpl === "cornell") {
+    const rule = rgb(0.66, 0.77, 0.87), frame = rgb(0.45, 0.55, 0.68);
+    const head = height - 22 * MM, foot = Math.min(50 * MM, height * 0.22), cue = Math.min(60 * MM, width * 0.3);
+    for (let y = head - 8 * MM; y > foot + 2; y -= 8 * MM) page.drawLine({ start: { x: cue, y }, end: { x: width, y }, thickness: 0.5, color: rule });
+    page.drawLine({ start: { x: 0, y: head }, end: { x: width, y: head }, thickness: 1, color: frame });
+    page.drawLine({ start: { x: 0, y: foot }, end: { x: width, y: foot }, thickness: 1, color: frame });
+    page.drawLine({ start: { x: cue, y: head }, end: { x: cue, y: foot }, thickness: 1, color: frame });
+    return;
+  }
+  if (tpl !== "lined") return;
   const gap = 8 * MM, top = 25 * MM, bottom = 12 * MM;
   const rule = rgb(0.66, 0.77, 0.87);
   for (let y = height - top; y >= bottom; y -= gap) {
@@ -3543,6 +3586,97 @@ async function insertPage(size, tpl, pos) {
   goToPage(idx + 1);
   toast("Added page " + (idx + 1) + ".");
 }
+
+/* ---------- page management: duplicate, move, delete ---------- */
+let pageBusy = false;
+async function applyPageOrder(order, focus, message) {
+  if (pageBusy || !state.bytes) return;
+  if (!window.PDFLib) { toast("The PDF engine didn't load. Reload and try again."); return; }
+  pageBusy = true;
+  try {
+    if (textEdit) closeTextEdit();
+    clearLassoSel();
+    if (imgSel.parentNode) deselectImage();
+    const src = await PDFLib.PDFDocument.load(state.bytes, { ignoreEncryption: true });
+    const out = await PDFLib.PDFDocument.create();
+    try { out.setTitle(src.getTitle() || state.name); } catch (e) {}
+    const copied = await out.copyPages(src, order.map((n) => n - 1));
+    copied.forEach((pg) => out.addPage(pg));
+    const bytes = await out.save();
+    const ann = {}, first = {};
+    order.forEach((oldN, i) => {
+      const items = state.ann[oldN] || [];
+      if (!(oldN in first)) { first[oldN] = i + 1; ann[i + 1] = items; }
+      else ann[i + 1] = items.map((it) => JSON.parse(JSON.stringify(Object.assign({}, it, { _b: undefined }))));
+    });
+    const keep = (op) => op.n in first;
+    const remap = (op) => { op.n = first[op.n]; return op; };
+    const undo = state.undo.filter(keep).map(remap), redo = state.redo.filter(keep).map(remap);
+    const bookmarks = (state.bookmarks || []).filter((b) => b.n in first).map((b) => Object.assign({}, b, { n: first[b.n] }));
+    const zoomLvl = state.zoom, id = state.id, name = state.name;
+    clearTimeout(saveTimer);
+    await DB.put("files", { id, bytes });
+    await DB.put("ann", { id, ann: stripAnn(ann), bookmarks, pageNumbers: state.pageNumbers || null });
+    const m = await DB.get("meta", id);
+    if (m) { delete m.thumb; await DB.put("meta", m); }
+    delete tabs.mem[id];
+    if (!(await openDoc(id, name, bytes, null, ann))) return;
+    state.undo = undo; state.redo = redo;
+    if (zoomLvl !== 1) { state.zoom = zoomLvl; layout(); }
+    renderToolbar();
+    goToPage(focus, null, true);
+    toast(message);
+  } catch (e) {
+    toast("Couldn't change the pages of this PDF. It may be locked.", 4500);
+  } finally { pageBusy = false; }
+}
+function pageRange() { return state.pages.map((p) => p.n); }
+function duplicatePage(n) {
+  const o = pageRange(); o.splice(n, 0, n);
+  applyPageOrder(o, n + 1, "Page " + n + " duplicated. The copy is page " + (n + 1) + ".");
+}
+function movePage(n, d) {
+  const o = pageRange(), j = n - 1 + d;
+  if (j < 0 || j >= o.length) return;
+  [o[n - 1], o[j]] = [o[j], o[n - 1]];
+  applyPageOrder(o, j + 1, "Moved to page " + (j + 1) + ".");
+}
+function deletePage(n) {
+  if (state.pages.length <= 1) { toast("A PDF needs at least one page."); return; }
+  const o = pageRange().filter((x) => x !== n);
+  applyPageOrder(o, Math.min(n, o.length), "Page " + n + " deleted.");
+}
+function armDelete(btn, label, run) {
+  if (!btn.classList.contains("armed")) {
+    btn.classList.add("armed");
+    btn.querySelector("b").textContent = "Tap again to delete";
+    setTimeout(() => { btn.classList.remove("armed"); btn.querySelector("b").textContent = label; }, 3000);
+    return false;
+  }
+  btn.classList.remove("armed"); btn.querySelector("b").textContent = label;
+  run();
+  return true;
+}
+let opsPage = 1;
+function showPageOps(n, anchor) {
+  opsPage = n;
+  $("poTitle").textContent = "Page " + n + " of " + state.pages.length;
+  $("poUp").disabled = n <= 1;
+  $("poDown").disabled = n >= state.pages.length;
+  $("poDel").disabled = state.pages.length <= 1;
+  if (openPop === $("pageOpsPop")) hidePop();
+  showPop($("pageOpsPop"), anchor);
+}
+$("poDup").onclick = () => { hidePop(); duplicatePage(opsPage); };
+$("poUp").onclick = () => { hidePop(); movePage(opsPage, -1); };
+$("poDown").onclick = () => { hidePop(); movePage(opsPage, 1); };
+$("poDel").addEventListener("click", (e) => { e.stopPropagation(); if (armDelete($("poDel"), "Delete page", () => deletePage(opsPage))) hidePop(); });
+$("pmDup").addEventListener("click", () => duplicatePage(state.curPage || 1));
+$("pmDel").addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (state.pages.length <= 1) { hidePop(); toast("A PDF needs at least one page."); return; }
+  if (armDelete($("pmDel"), "Delete this page", () => deletePage(state.curPage || 1))) hidePop();
+});
 
 /* ---------- go to page ---------- */
 function goToPage(n, yPt, animate) {
@@ -3877,7 +4011,14 @@ function buildThumbs() {
     const flip = (e) => { e.stopPropagation(); e.preventDefault(); toggleBookmark(p.n); };
     tb.addEventListener("click", flip);
     tb.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") flip(e); });
-    b.append(tc, tn, tb);
+    const more = document.createElement("span");
+    more.className = "tmore"; more.setAttribute("role", "button"); more.tabIndex = 0;
+    more.setAttribute("aria-label", "Actions for page " + p.n);
+    more.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+    const openOps = (e) => { e.stopPropagation(); e.preventDefault(); showPageOps(p.n, more); };
+    more.addEventListener("click", openOps);
+    more.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") openOps(e); });
+    b.append(tc, tn, tb, more);
     b.tc = tc; b.tb = tb; b.done = false;
     b.onclick = () => {
       goToPage(p.n, null, true);
