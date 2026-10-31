@@ -1,0 +1,84 @@
+{
+ "css": [
+  [
+   "/* Layout: a reading desk. Two-row toolbar on top, a scrolling column of white pages below. */",
+   0
+  ],
+  [
+   ".vmini { display: flex; gap: 3px; width: 64px; height: 64px; align-items: center; justify-content: center; }",
+   0
+  ],
+  [
+   "@media (max-width: 760px) { .hlstyle button span { display: none; } }",
+   0
+  ],
+  [
+   ".tool[aria-pressed=\"true\"]#zoomBoxBtn { background: var(--bar); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.12); }",
+   0
+  ]
+ ],
+ "ui": [
+  [
+   "<div class=\"app\">",
+   0
+  ],
+  [
+   "<aside class=\"panel\" id=\"panel\" hidden aria-label=\"Search, favorites and review\">",
+   0
+  ]
+ ],
+ "js": [
+  [
+   "(function () {",
+   0
+  ],
+  [
+   "/* ---------- open documents ---------- */",
+   0
+  ],
+  [
+   "/* ---------- zoom ---------- */",
+   0
+  ],
+  [
+   "function fitRect(P, bb, scale) {",
+   0
+  ],
+  [
+   "/* ---------- zoom window ---------- */",
+   0
+  ],
+  [
+   "/* ---------- photos ---------- */",
+   0
+  ],
+  [
+   "/* ---------- lasso: select written content and move it ---------- */",
+   0
+  ],
+  [
+   "function inlineName(placeholder, value, okLabel, onOk, onCancel) {",
+   0
+  ],
+  [
+   "/* ---------- export & share ---------- */",
+   0
+  ],
+  [
+   "/* ---------- page management: duplicate, move, delete ---------- */",
+   0
+  ],
+  [
+   "/* ---------- bookmarks ---------- */",
+   0
+  ],
+  [
+   "/* ---------- page colour: normal, sepia, night ---------- */",
+   0
+  ],
+  [
+   "/* ---------- backup & restore ---------- */",
+   0
+  ]
+ ]
+}

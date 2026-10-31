@@ -1,6 +1,6 @@
 /* Margin service worker: makes the app open and work without internet.
-   Change VERSION whenever you upload a new index.html, so every iPad picks it up. */
-const VERSION = "margin-v5";
+   App files load fresh from the internet when online, and from the saved copy when offline. */
+const VERSION = "margin-v6";
 
 const APP_FILES = [
   "./",
@@ -9,7 +9,26 @@ const APP_FILES = [
   "./icon-180.png",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon-maskable-512.png"
+  "./icon-maskable-512.png",
+  "./style-01.css",
+  "./style-02.css",
+  "./style-03.css",
+  "./style-04.css",
+  "./ui-01.html",
+  "./ui-02.html",
+  "./app-01.js",
+  "./app-02.js",
+  "./app-03.js",
+  "./app-04.js",
+  "./app-05.js",
+  "./app-06.js",
+  "./app-07.js",
+  "./app-08.js",
+  "./app-09.js",
+  "./app-10.js",
+  "./app-11.js",
+  "./app-12.js",
+  "./app-13.js"
 ];
 
 /* the PDF engines Margin needs on every launch */
@@ -22,7 +41,7 @@ const LIBRARIES = [
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(VERSION);
-    await cache.addAll(APP_FILES);
+    await Promise.all(APP_FILES.map((u) => cache.add(new Request(u, { cache: "reload" })).catch(() => {})));
     await Promise.all(LIBRARIES.map((url) =>
       cache.add(new Request(url, { mode: "no-cors" })).catch(() => {})
     ));
@@ -43,26 +62,25 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  /* opening the app: try the internet first for the newest version, fall back to the saved copy */
-  if (req.mode === "navigate") {
+  /* Margin's own files: newest from the internet, saved copy when offline */
+  if (url.origin === self.location.origin) {
     event.respondWith((async () => {
+      const cache = await caches.open(VERSION);
+      const key = req.mode === "navigate" ? "./index.html" : url.pathname;
       try {
-        const fresh = await fetch(req);
-        const cache = await caches.open(VERSION);
-        cache.put("./index.html", fresh.clone());
+        const fresh = await fetch(req, { cache: "no-cache" });
+        if (fresh && fresh.ok) cache.put(req.mode === "navigate" ? "./index.html" : req, fresh.clone());
         return fresh;
       } catch (e) {
-        return (await caches.match("./index.html")) || (await caches.match("./")) || Response.error();
+        return (await cache.match(req.mode === "navigate" ? "./index.html" : req, { ignoreSearch: true })) ||
+          (await caches.match(key, { ignoreSearch: true })) || Response.error();
       }
     })());
     return;
   }
 
-  /* app files, libraries, fonts, converters: use the saved copy at once, refresh it in the background */
-  const cacheable = url.origin === self.location.origin ||
-    /(^|\.)cdnjs\.cloudflare\.com$|(^|\.)cdn\.jsdelivr\.net$|(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.test(url.hostname);
-  if (!cacheable) return;
-
+  /* libraries, fonts, converters: use the saved copy at once, refresh it in the background */
+  if (!/(^|\.)cdnjs\.cloudflare\.com$|(^|\.)cdn\.jsdelivr\.net$|(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/.test(url.hostname)) return;
   event.respondWith((async () => {
     const cache = await caches.open(VERSION);
     const cached = await cache.match(req);
