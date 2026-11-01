@@ -134,4 +134,8 @@ body.read-night .page .tbar, body.read-night .page .selbar { filter: invert(1) h
 .thumb-add:hover { border-color: var(--accent); color: var(--accent); }
 .thumb-add svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .from-pdf { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 4px; border-top: 1px solid var(--line); }
+.page .snapguide { position: absolute; z-index: 5; pointer-events: none; animation: guideIn .12s ease-out; }
+.page .snapguide.v { width: 0; border-left: 1.5px solid #ff3d7f; transform: translateX(-0.75px); }
+.page .snapguide.h { height: 0; border-top: 1.5px solid #ff3d7f; transform: translateY(-0.75px); }
+@keyframes guideIn { from { opacity: 0; } to { opacity: 1; } }
 .zwin.docked { border-radius: 0; border-left: 0; border-right: 0; box-shadow: 0 -6px 24px rgba(10,20,40,.18); }
