@@ -222,15 +222,16 @@ tabHide.setAttribute("aria-label", "Hide file tabs"); tabHide.title = "Hide file
 tabHide.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
 $("tabStrip").appendChild(tabHide);
 const tabsRow = document.createElement("button");
-tabsRow.type = "button"; tabsRow.className = "setting-row"; tabsRow.id = "tabsRowBtn";
-tabsRow.innerHTML = '<span><b>File tabs</b><small>Show open files as tabs under the toolbar.</small></span><span class="toggle"><span class="knob"></span></span>';
-$("pencilBtn").previousElementSibling.before(tabsRow);
+tabsRow.type = "button"; tabsRow.className = "icon-btn"; tabsRow.id = "tabsRowBtn";
+tabsRow.setAttribute("aria-label", "Show file tabs"); tabsRow.title = "Show or hide file tabs";
+tabsRow.innerHTML = '<svg viewBox="0 0 24 24" style="fill:none"><path d="M3 9.5h18v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 9.5V5.5a1 1 0 0 1 1-1h5.5l1.5 5"/><path d="M12.5 9.5l-1-3.5h5l1 3.5"/></svg>';
+$("fitBtn").after(tabsRow);
 function setTabsHidden(h) {
   tabsHidden = h;
   try { localStorage.setItem("margin-tabs-hidden", h ? "1" : "0"); } catch (e) {}
   renderTabs();
   relayoutKeep();
-  if (h) toast("File tabs hidden. Turn them back on in View.", 3500);
+  if (h) toast("File tabs hidden. Tap the tabs button in the top bar to show them.", 3500);
 }
 tabHide.onclick = () => setTabsHidden(true);
 tabsRow.onclick = () => setTabsHidden(!tabsHidden);
