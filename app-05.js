@@ -12,12 +12,16 @@ function zoomOpen() {
   zoom.on = true;
   zWin.hidden = false;
   sizeZoomWindow(true);
+  zoom.dock = "bottom";
+  sizeZoomWindow(false);
   const w = p.w * 0.42;
   const startY = (viewer.scrollTop + 60 - p.wrap.offsetTop) / p.s;
   zoomMoveTo(p, p.w * 0.08, Math.max(p.h * 0.06, startY), w);
   zoom.lineX = zoom.x;
+  applyDockMargins();
+  relayoutKeep();
   renderToolbar();
-  toast("Write in the zoom window. Drag the blue box or tap the page to move it.", 4500);
+  toast("Write in the zoom window. Drag the blue box or tap the page to move it. Drag the window's top bar to float it.", 4500);
 }
 function zoomClose() {
   const wasDocked = !!zoom.dock;
