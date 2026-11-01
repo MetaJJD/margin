@@ -72,9 +72,9 @@ async function renderLibrary() {
   else metas.sort((a, b) => (b.opened || 0) - (a.opened || 0));
   list.innerHTML = "";
   if (!metas.length) {
-    const msg = !all.length ? "No files yet. Tap Open a file or New PDF to start."
-      : q ? "No files match \u201c" + lib.q.trim() + "\u201d."
-      : "This folder is empty. Open a file while the folder is selected, or move files here with \u22ef on any file.";
+    const msg = !all.length ? "No files yet. Tap Import from Files or New PDF to start."
+      : q ? "No files match “" + lib.q.trim() + "”."
+      : "This folder is empty. Import a file while this folder is selected, or move files here with ⋯ on any file.";
     const li = document.createElement("li"); const p = document.createElement("p"); p.className = "empty"; p.textContent = msg; li.appendChild(p); list.appendChild(li);
     return;
   }
