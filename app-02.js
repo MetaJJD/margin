@@ -382,7 +382,9 @@ function turnPage(snap, np, fwd) {
   if (!snap) return;
   /* side by side: the old page slides out while the new one slides in next to it */
   const ms = 380, ease = "cubic-bezier(.25, .8, .25, 1)";
-  const dist = Math.max(np.wrap.offsetWidth, parseFloat(snap.style.width) || 0) + 28;
+  /* slide far enough that the old page is fully off screen, so it never shows next to the new one */
+  const w = Math.max(np.wrap.offsetWidth, parseFloat(snap.style.width) || 0);
+  const dist = Math.max(w + 28, (viewer.clientWidth + w) / 2 + 48);
   const out = fwd ? -dist : dist;
   snap.style.zIndex = "2";
   snap.style.backfaceVisibility = snap.style.webkitBackfaceVisibility = "";

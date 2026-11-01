@@ -208,10 +208,7 @@ function setFullscreen(on, byTap) {
     renderToolbar();
   }, 60);
 }
-/* the full screen button sits at the right end of the tools bar, next to the zoom window button;
-   in full screen the exit button shows its icon only */
-$("zoomBoxBtn").after($("fsBtn"));
-$("fsBtn").className = "tool";
+/* in full screen the exit button shows its icon only */
 $("fsExit").className = "icon-btn";
 $("fsExit").lastChild.remove();
 $("fsExit").setAttribute("aria-label", "Exit full screen"); $("fsExit").title = "Exit full screen";
@@ -262,7 +259,7 @@ const tabsRow = document.createElement("button");
 tabsRow.type = "button"; tabsRow.className = "icon-btn"; tabsRow.id = "tabsRowBtn";
 tabsRow.setAttribute("aria-label", "Show file tabs"); tabsRow.title = "Show or hide file tabs";
 tabsRow.innerHTML = '<svg viewBox="0 0 24 24" style="fill:none"><path d="M3 9.5h18v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 9.5V5.5a1 1 0 0 1 1-1h5.5l1.5 5"/><path d="M12.5 9.5l-1-3.5h5l1 3.5"/></svg>';
-$("fitBtn").after(tabsRow);
+$("thumbsBtn").after(tabsRow);
 function setTabsHidden(h) {
   tabsHidden = h;
   try { localStorage.setItem("margin-tabs-hidden", h ? "1" : "0"); } catch (e) {}
