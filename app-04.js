@@ -43,12 +43,13 @@ pagesEl.addEventListener("pointerdown", (e) => {
   const p = pageFrom(e); if (!p || pinch) return;
   if (e.pointerType === "mouse" && e.button !== 0) return;
   const rect = p.wrap.getBoundingClientRect();
-  const map = (ev) => toPt(p, rect, ev);
+  const map = (ev) => toPt(p, rect, rulerSnap(ev));
   if (isPassive(e)) {
     tap = { p, pt: map(e), x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
     if (e.pointerType === "pen") armLongPress(e);
     return;
   }
+  rulerBegin(e);
   startInput(e, p, map, p.wrap);
 });
 function segment(ctx, k, ox, oy, it, P) {
@@ -131,8 +132,10 @@ function endPointer(e, cancelled) {
       const hit = noteAt(t.p, t.pt);
       const txt = hit ? null : textAt(t.p, t.pt);
       const pic = hit || txt ? null : imageAt(t.p, t.pt);
-      const blank = !hit && !txt && !pic, now = Date.now();
-      if (blank && lastTap && now - lastTap.t < 340 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) {
+      const lnk = hit || txt || pic || textEdit ? null : linkAt(t.p, t.pt);
+      const blank = !hit && !txt && !pic && !lnk, now = Date.now();
+      if (lnk) { lastTap = null; followLink(lnk); }
+      else if (blank && lastTap && now - lastTap.t < 340 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) {
         lastTap = null;
         clearTimeout(fsTapTimer);
         setFullscreen(!document.body.classList.contains("fullscreen"), true);
