@@ -72,6 +72,13 @@ async function openDoc(id, name, bytes, presetAnn, keepAnn) {
 }
 function showStatus(msg) { statusEl.textContent = msg; statusEl.hidden = false; }
 
+/* a file with a name that is already in the library gets " (01)", " (02)" ... added */
+async function uniqueName(base) {
+  const names = new Set((await DB.all("meta")).map((m) => String(m.name || "").toLowerCase()));
+  if (!names.has(base.toLowerCase())) return base;
+  for (let i = 1; i < 1000; i++) { const nm = base + " (" + String(i).padStart(2, "0") + ")"; if (!names.has(nm.toLowerCase())) return nm; }
+  return base + " (" + Date.now() + ")";
+}
 async function addFile(file) {
   if (!file) return;
   const buf = await file.arrayBuffer();
@@ -91,9 +98,10 @@ async function addFile(file) {
     toast("Margin opens PDF and PowerPoint (.pptx) files.");
     return;
   }
-  const id = file.name + "|" + file.size;
+  const name = await uniqueName(file.name.replace(/\.pdf$/i, ""));
+  const id = name + "|" + file.size + "|" + Date.now().toString(36);
   closeLibrary();
-  const ok = await openDoc(id, file.name.replace(/\.pdf$/i, ""), bytes);
+  const ok = await openDoc(id, name, bytes);
   if (ok) {
     await DB.put("files", { id, bytes });
     const m = await DB.get("meta", id);
@@ -139,7 +147,7 @@ async function convertPptx(file, buf) {
   if (converting) { toast("Another presentation is still converting."); return; }
   converting = true;
   closeLibrary();
-  const name = file.name.replace(/\.pptx?$/i, "");
+  const name = await uniqueName(file.name.replace(/\.pptx?$/i, ""));
   showStatus("Getting the slide converter ready…");
   const hostEl = document.createElement("div");
   hostEl.setAttribute("aria-hidden", "true");
@@ -178,7 +186,7 @@ async function convertPptx(file, buf) {
       pg.drawImage(jpg, { x: 0, y: 0, width: PW, height: PH });
     }
     const bytes = await out.save();
-    const id = name + "|" + file.size + "|pptx";
+    const id = name + "|" + file.size + "|pptx|" + Date.now().toString(36);
     const ok = await openDoc(id, name, bytes);
     if (ok) {
       await DB.put("files", { id, bytes });
