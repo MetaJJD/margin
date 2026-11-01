@@ -350,7 +350,7 @@ function playAnim(el, cls) {
   el.addEventListener("animationend", done);
   setTimeout(done, 600);
 }
-/* one-page view: pages turn like a book (forward: the old page lifts away to the left; back: the earlier page swings in over it) */
+/* one-page view: pages slide side by side when you change page */
 let turning = null;
 function snapshotPage(p) {
   if (!p || p.wrap.hidden || !p.pdfCanvas) return null;
@@ -368,42 +368,33 @@ function snapshotPage(p) {
   }
   return box;
 }
-function shadeLayer(dir) {
-  const d = document.createElement("div");
-  d.style.cssText = "position:absolute;inset:0;pointer-events:none;opacity:0;background:linear-gradient(" + dir + ", rgba(0,0,0,.38), rgba(0,0,0,.04) 70%);";
-  return d;
-}
 function turnPage(snap, np, fwd) {
   if (turning) turning();
   if (!snap) return;
-  const ms = 560, ease = "cubic-bezier(.45, .05, .3, 1)";
-  const persp = "perspective(" + Math.round(Math.max(1400, np.wrap.offsetWidth * 2.4)) + "px) ";
-  const anims = [];
-  let shade = null;
+  /* side by side: the old page slides out while the new one slides in next to it */
+  const ms = 380, ease = "cubic-bezier(.25, .8, .25, 1)";
+  const dist = Math.max(np.wrap.offsetWidth, parseFloat(snap.style.width) || 0) + 28;
+  const out = fwd ? -dist : dist;
+  snap.style.zIndex = "2";
+  snap.style.backfaceVisibility = snap.style.webkitBackfaceVisibility = "";
   viewer.appendChild(snap);
-  if (fwd) {
-    snap.style.zIndex = "3"; snap.style.transformOrigin = "left center";
-    shade = shadeLayer("to left"); snap.appendChild(shade);
-    anims.push(snap.animate([{ transform: persp + "rotateY(0deg)" }, { transform: persp + "rotateY(-100deg)" }], { duration: ms, easing: ease, fill: "forwards" }));
-  } else {
-    snap.style.zIndex = "0";
-    np.wrap.style.zIndex = "1"; np.wrap.style.transformOrigin = "left center";
-    np.wrap.style.backfaceVisibility = np.wrap.style.webkitBackfaceVisibility = "hidden";
-    shade = shadeLayer("to right"); shade.style.opacity = ".5"; shade.style.zIndex = "9"; np.wrap.appendChild(shade);
-    anims.push(np.wrap.animate([{ transform: persp + "rotateY(-100deg)" }, { transform: persp + "rotateY(0deg)" }], { duration: ms, easing: ease }));
-  }
-  anims.push(shade.animate(fwd ? [{ opacity: 0 }, { opacity: 0.6 }] : [{ opacity: 0.55 }, { opacity: 0 }], { duration: ms, easing: ease, fill: "forwards" }));
+  const anims = [
+    snap.animate([{ transform: "translateX(0)" }, { transform: "translateX(" + out + "px)" }], { duration: ms, easing: ease, fill: "forwards" }),
+    np.wrap.animate([{ transform: "translateX(" + (-out) + "px)" }, { transform: "translateX(0)" }], { duration: ms, easing: ease })
+  ];
+  const vx = viewer.style.overflowX;
+  viewer.style.overflowX = "hidden";
   let done = false;
   const finish = () => {
     if (done) return;
     done = true; turning = null; clearTimeout(t);
     anims.forEach((a) => { try { a.cancel(); } catch (e) {} });
     snap.querySelectorAll("canvas").forEach((c) => { c.width = 0; });
-    snap.remove(); shade.remove();
-    np.wrap.style.zIndex = ""; np.wrap.style.transformOrigin = ""; np.wrap.style.backfaceVisibility = np.wrap.style.webkitBackfaceVisibility = "";
+    snap.remove();
+    viewer.style.overflowX = vx;
   };
   const t = setTimeout(finish, ms + 300);
-  anims[0].finished.then(finish, finish);
+  anims[1].finished.then(finish, finish);
   turning = finish;
 }
 function showSingle(n, animate, axis) {

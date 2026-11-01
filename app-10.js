@@ -67,6 +67,7 @@ async function applyPageOrder(order, focus, message) {
     const m = await DB.get("meta", id);
     if (m) { delete m.thumb; await DB.put("meta", m); }
     delete tabs.mem[id];
+    thumbs.built = null;
     if (!(await openDoc(id, name, bytes, null, ann))) return;
     state.undo = undo; state.redo = redo;
     if (zoomLvl !== 1) { state.zoom = zoomLvl; layout(); }
