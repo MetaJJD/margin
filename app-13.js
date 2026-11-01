@@ -420,36 +420,3 @@ async function makeSample() {
 
   return { bytes: await doc.save(), ann };
 }
-
-/* ---------- boot ---------- */
-async function openMostRecent() {
-  const metas = (await DB.all("meta")).sort((a, b) => (b.opened || 0) - (a.opened || 0));
-  for (const m of metas) {
-    const f = await DB.get("files", m.id);
-    if (f && await openDoc(m.id, m.name, f.bytes)) return true;
-  }
-  return openSample();
-}
-async function openSample() {
-  if (!window.PDFLib) { showStatus("The PDF engine didn't load. Check your connection and reload the page."); return false; }
-  const s = await makeSample();
-  const id = "sample-welcome", name = "Welcome to Margin";
-  await DB.put("files", { id, bytes: s.bytes });
-  await DB.del("ann", id);
-  return openDoc(id, name, s.bytes, s.ann);
-}
-async function boot() {
-  loadPrefs();
-  renderToolbar();
-  if (!window.pdfjsLib) { showStatus("The PDF engine didn't load. Check your connection and reload the page."); return; }
-  try { pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; } catch (e) {}
-  let last = null;
-  try { last = localStorage.getItem("margin-last"); } catch (e) {}
-  if (last) {
-    const m = await DB.get("meta", last), f = await DB.get("files", last);
-    if (m && f && await openDoc(m.id, m.name, f.bytes)) return;
-  }
-  await openMostRecent();
-}
-boot();
-})();
