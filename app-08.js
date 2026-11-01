@@ -205,6 +205,32 @@ favItem.onclick = async () => {
   refreshFavItem();
 };
 $("filesBtn").addEventListener("click", () => { refreshFavItem(); });
+/* day / night switch for the bars and menus (View menu) */
+const nightRow = document.createElement("button");
+nightRow.type = "button"; nightRow.className = "setting-row"; nightRow.id = "nightBtn";
+nightRow.innerHTML = '<span><b>Night mode</b><small>Dark toolbars, menus and Home. Pages keep their own Page colour.</small></span><span class="toggle"><span class="knob"></span></span>';
+const nightLabel = document.createElement("div");
+nightLabel.className = "pop-label"; nightLabel.textContent = "Day / night";
+$("pencilBtn").previousElementSibling.before(nightLabel, nightRow);
+function isNight() {
+  let t = null;
+  try { t = localStorage.getItem("margin-theme"); } catch (e) {}
+  if (t === "dark") return true;
+  if (t === "light") return false;
+  return !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+}
+function applyTheme() {
+  const night = isNight();
+  document.documentElement.dataset.theme = night ? "dark" : "light";
+  nightRow.setAttribute("aria-pressed", String(night));
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", night ? "#1d222a" : "#f8fafc"));
+}
+nightRow.onclick = () => {
+  const night = !isNight();
+  try { localStorage.setItem("margin-theme", night ? "dark" : "light"); } catch (e) {}
+  applyTheme();
+};
+applyTheme();
 $("libClose").onclick = closeLibrary;
 $("libSheet").addEventListener("pointerdown", (e) => { if (e.target === $("libSheet")) closeLibrary(); });
 const drop = $("drop");
