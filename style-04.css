@@ -85,3 +85,12 @@
 body.read-night .gv-page, body.read-night .card-cover img { filter: invert(.9) hue-rotate(180deg) brightness(1.05); }
 body.read-sepia .gv-page { filter: sepia(.38) saturate(1.1) brightness(.97); }
 @media (max-width: 520px) { .gv-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 14px 12px; } }
+/* every bar scrolls sideways when its buttons don't all fit */
+.row1, .gv-bar, .gv-actions { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.row1::-webkit-scrollbar, .gv-bar::-webkit-scrollbar, .gv-actions::-webkit-scrollbar, .fspill::-webkit-scrollbar { display: none; }
+.row1 > *, .row2 > *, .gv-bar > *, .gv-actions > *, .fspill > * { flex-shrink: 0; }
+.row1 > .doc-title { flex-shrink: 1; min-width: 60px; }
+.row1 > .spacer, .row1 > .spacer-m, .row2 > .spacer, .gv-bar > .spacer { flex-shrink: 1; }
+.gv-actions { flex-wrap: nowrap; }
+.fspill { max-width: calc(100vw - 20px); overflow-x: auto; scrollbar-width: none; }
+.fspill.vertical { max-width: none; max-height: calc(100vh - 20px); overflow-x: hidden; overflow-y: auto; }
