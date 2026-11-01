@@ -5,13 +5,20 @@ if (navigator.storage && navigator.storage.persist) {
 }
 
 /* ---------- reopen each file at the page you were reading ---------- */
-var pageMemo = { t: 0, id: null, n: 0 };
+var pageMemo = { t: 0, id: null, n: 0, zp: null };
 function lastPage(id, max) {
   let n = 1;
   try { n = +(JSON.parse(localStorage.getItem("margin-pages") || "{}")[id]) || 1; } catch (e) {}
   return Math.min(Math.max(1, n), max || 1);
 }
 function rememberPage(n) {
+  /* the zoom window follows when you move to another page; it keeps the same spot on the page */
+  if (!zoom.on) pageMemo.zp = null;
+  else if (pageMemo.zp !== n) {
+    const np = state.pages[n - 1];
+    if (pageMemo.zp != null && np && zoom.p && np !== zoom.p) zoomMoveTo(np, zoom.x, zoom.y);
+    pageMemo.zp = n;
+  }
   if (!state.id || (pageMemo.id === state.id && pageMemo.n === n)) return;
   pageMemo.id = state.id; pageMemo.n = n;
   clearTimeout(pageMemo.t);
@@ -188,7 +195,9 @@ new MutationObserver(() => { if (state.tool === "hand") for (const p of state.pa
 })();
 
 /* ---------- saved pens: keep favourite pen and highlighter setups one tap away ---------- */
-function penPresets() { try { return JSON.parse(localStorage.getItem("margin-pens") || "[]") || []; } catch (e) { return []; } }
+/* up to 3 saved pens; to change one, press and hold it to remove it, then save the new one */
+var MAX_PENS = 3;
+function penPresets() { try { return (JSON.parse(localStorage.getItem("margin-pens") || "[]") || []).slice(0, MAX_PENS); } catch (e) { return []; } }
 function savePenPresets(list) { try { localStorage.setItem("margin-pens", JSON.stringify(list)); } catch (e) {} }
 function currentPen() {
   if (state.tool === "pen") return { tool: "pen", color: state.penColor, size: state.penSize };
@@ -237,10 +246,12 @@ function renderPenPresets() {
     add.type = "button"; add.className = "preset add";
     add.setAttribute("aria-label", "Save this pen"); add.title = "Save this pen and colour";
     add.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/><path d="M12 7.5v6M9 10.5h6"/></svg>';
+    const full = list.length >= MAX_PENS;
+    add.classList.toggle("full", full);
+    if (full) add.title = "You have 3 saved pens. Press and hold one to remove it first.";
     add.onclick = () => {
-      const l = penPresets().concat(cur);
-      while (l.length > 6) l.shift();
-      savePenPresets(l); toast("Saved. Tap it any time to pick this pen again."); renderPenPresets();
+      if (penPresets().length >= MAX_PENS) { toast("You can keep 3 saved pens. Press and hold one to remove it, then save this one.", 4500); return; }
+      savePenPresets(penPresets().concat(cur)); toast("Saved. Tap it any time to pick this pen again."); renderPenPresets();
     };
     box.appendChild(add);
   }
