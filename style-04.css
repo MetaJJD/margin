@@ -94,3 +94,17 @@ body.read-sepia .gv-page { filter: sepia(.38) saturate(1.1) brightness(.97); }
 .gv-actions { flex-wrap: nowrap; }
 .fspill { max-width: calc(100vw - 20px); overflow-x: auto; scrollbar-width: none; }
 .fspill.vertical { max-width: none; max-height: calc(100vh - 20px); overflow-x: hidden; overflow-y: auto; }
+/* tools bar: icons only, smaller and cleaner; colours sized to match the icons */
+.row2 { gap: 8px; padding-block: 2px 6px; }
+.row2 .tool span { display: none; }
+.row2 .tool { min-width: 38px; width: 38px; height: 38px; padding: 0; gap: 0; border-radius: 9px; }
+.row2 .group { gap: 1px; padding: 2px; border-radius: 11px; }
+.row2 .options { gap: 8px; }
+.row2 .swatches { gap: 6px; }
+.row2 .sw { width: 24px; height: 24px; border-width: 2px; }
+.row2 .sw.plus svg { width: 12px; height: 12px; }
+.row2 .size { width: 32px; height: 32px; }
+.row2 .seg.emode { padding: 2px; }
+.row2 .emode button { height: 32px; min-width: 36px; padding: 0 6px; }
+.row2 .fontsel { height: 32px; min-width: 104px; font-size: 13.5px; }
+.row2 .tool-hint { font-size: 12.5px; }
