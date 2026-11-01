@@ -1,5 +1,6 @@
 /* ---------- zoom ---------- */
-const clampZoom = (z) => Math.max(0.5, Math.min(4, z));
+const MIN_ZOOM = 0.25;
+const clampZoom = (z) => Math.max(MIN_ZOOM, Math.min(4, z));
 /* the spot on a page under a screen point, so zooming keeps exactly that spot under your fingers */
 function anchorAt(cx, cy) {
   let best = null, bd = Infinity;
@@ -66,15 +67,42 @@ viewer.addEventListener("wheel", (e) => {
     pagesEl.style.transformOrigin = (viewer.scrollLeft + e.clientX - vr.left) + "px " + (viewer.scrollTop + e.clientY - vr.top) + "px";
     pagesEl.style.willChange = "transform";
   }
-  wheelZ.r = Math.max(0.5 / state.zoom, Math.min(4 / state.zoom, wheelZ.r * Math.exp(-e.deltaY * 0.01)));
+  wheelZ.r = Math.max(MIN_ZOOM / state.zoom, Math.min(4 / state.zoom, wheelZ.r * Math.exp(-e.deltaY * 0.01)));
   pagesEl.style.transform = "scale(" + wheelZ.r + ")";
   clearTimeout(wheelZ.t);
   wheelZ.t = setTimeout(() => {
     const w = wheelZ; wheelZ = null;
     pagesEl.style.transform = ""; pagesEl.style.willChange = "";
-    setZoom(state.zoom * w.r, w.cx, w.cy, w.anchor);
+    const page = w.anchor ? w.anchor.p : state.pages[(state.curPage || 1) - 1];
+    const fs = fitSnap(state.zoom * w.r, page);
+    setZoom(fs ? fs.z : state.zoom * w.r, w.cx, w.cy, w.anchor);
+    if (fs) settleFit(fs, page);
   }, 160);
 }, { passive: false });
+
+/* after a pinch, settle on "fit width" or "fit height" when the page is close to either */
+function fitSnap(z, p) {
+  if (!p) return null;
+  const f = p.s / state.zoom;
+  const availW = viewer.clientWidth - padsOf().x, availH = viewer.clientHeight - 32;
+  const zW = availW / (p.w * f), zH = availH / (p.h * f);
+  const near = (a, b) => Math.abs(a - b) / b < 0.1;
+  const w = p.w * f * z, h = p.h * f * z;
+  const ok = (v) => v >= MIN_ZOOM && v <= 4;
+  const dw = Math.abs(w - availW) / availW, dh = Math.abs(h - availH) / availH;
+  if (near(w, availW) && ok(zW) && (dw <= dh || !near(h, availH) || !ok(zH))) return { z: zW, fit: "w" };
+  if (near(h, availH) && ok(zH)) return { z: zH, fit: "h" };
+  return null;
+}
+function settleFit(fs, p) {
+  const pw = p.w * p.s, ph = p.h * p.s;
+  const left = Math.max(0, p.wrap.offsetLeft - (viewer.clientWidth - pw) / 2);
+  const top = fs.fit === "h" ? Math.max(0, p.wrap.offsetTop - (viewer.clientHeight - ph) / 2) : viewer.scrollTop;
+  if (reduceMotion.matches) { viewer.scrollLeft = left; viewer.scrollTop = top; }
+  else viewer.scrollTo({ left, top, behavior: "smooth" });
+  toast(fs.fit === "w" ? "Fit to width" : "Fit to height", 900);
+}
+let pendingFit = null;
 
 /* pinch to zoom with two fingers */
 let pinch = null;
@@ -84,6 +112,7 @@ viewer.addEventListener("touchstart", (e) => {
   if (fingers.length === 2) {
     const [a, b] = fingers;
     if (zoomAnim) zoomAnim.done();
+    if (pendingFit) pendingFit();
     const cx = (a.clientX + b.clientX) / 2, cy = (a.clientY + b.clientY) / 2;
     const vr = viewer.getBoundingClientRect();
     pinch = { d0: tdist(a, b), cx, cy, mx: cx, my: cy, r: 1, anchor: anchorAt(cx, cy) };
@@ -97,7 +126,7 @@ viewer.addEventListener("touchmove", (e) => {
   if (pinch && e.touches.length >= 2) {
     e.preventDefault();
     const t0 = e.touches[0], t1 = e.touches[1];
-    pinch.r = Math.max(0.5 / state.zoom, Math.min(4 / state.zoom, tdist(t0, t1) / pinch.d0));
+    pinch.r = Math.max(MIN_ZOOM / state.zoom, Math.min(4 / state.zoom, tdist(t0, t1) / pinch.d0));
     pinch.mx = (t0.clientX + t1.clientX) / 2; pinch.my = (t0.clientY + t1.clientY) / 2;
     if (!pinch.raf) pinch.raf = requestAnimationFrame(() => {
       if (!pinch) return;
@@ -110,6 +139,23 @@ viewer.addEventListener("touchend", (e) => {
   if (pinch && e.touches.length < 2) {
     const p = pinch; pinch = null;
     if (p.raf) cancelAnimationFrame(p.raf);
+    const page = p.anchor ? p.anchor.p : state.pages[(state.curPage || 1) - 1];
+    const fs = Math.abs(p.r - 1) > 0.02 ? fitSnap(state.zoom * p.r, page) : null;
+    if (fs) {
+      const finish = () => {
+        if (pendingFit !== finish) return;
+        pendingFit = null;
+        pagesEl.style.transition = ""; pagesEl.style.transform = ""; pagesEl.style.willChange = "";
+        setZoom(fs.z, p.mx, p.my, p.anchor, true);
+        settleFit(fs, page);
+      };
+      pendingFit = finish;
+      if (reduceMotion.matches) { finish(); return; }
+      pagesEl.style.transition = "transform .16s ease-out";
+      pagesEl.style.transform = "translate(" + (p.mx - p.cx) + "px, " + (p.my - p.cy) + "px) scale(" + (fs.z / state.zoom) + ")";
+      setTimeout(finish, 170);
+      return;
+    }
     pagesEl.style.transform = ""; pagesEl.style.willChange = "";
     const moved = Math.hypot(p.mx - p.cx, p.my - p.cy) > 3;
     if (Math.abs(p.r - 1) > 0.02 || moved) setZoom(state.zoom * p.r, p.mx, p.my, p.anchor, true);
