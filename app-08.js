@@ -12,9 +12,42 @@ function inlineName(placeholder, value, okLabel, onOk, onCancel) {
   setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) {} }, 30);
   return wrap;
 }
+const STAR_SVG = '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>';
+function openMeta(m) {
+  if (m.id === state.id) { closeLibrary(); return; }
+  DB.get("files", m.id).then((f) => {
+    if (!f) { toast("This file is no longer saved. Import it again from Files."); return; }
+    closeLibrary(); openDoc(m.id, m.name, f.bytes);
+  });
+}
+function fillCards(box, metas, empty) {
+  box.innerHTML = "";
+  if (!metas.length) { const p = document.createElement("p"); p.className = "home-empty"; p.textContent = empty; box.appendChild(p); return; }
+  for (const m of metas) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "card" + (m.id === state.id ? " current" : "");
+    const cv = document.createElement("span"); cv.className = "card-cover";
+    if (m.thumb) { const im = document.createElement("img"); im.src = m.thumb; im.alt = ""; cv.appendChild(im); }
+    else cv.textContent = (m.name || "?").trim().charAt(0).toUpperCase();
+    if (m.fav) { const st = document.createElement("span"); st.className = "card-fav"; st.innerHTML = STAR_SVG; cv.appendChild(st); }
+    const t = document.createElement("b"); t.textContent = m.name;
+    const sm = document.createElement("small"); sm.textContent = (m.pages || "?") + (m.pages === 1 ? " page" : " pages") + ", " + when(m.opened);
+    b.append(cv, t, sm);
+    b.onclick = () => openMeta(m);
+    box.appendChild(b);
+  }
+}
 async function renderLibrary() {
   const list = $("docList"), chipsEl = $("folderChips"), tools = $("folderTools");
   const all = await DB.all("meta");
+  const searching = !!lib.q.trim();
+  $("homeRecentSec").hidden = searching;
+  $("homeFavSec").hidden = searching;
+  $("myFilesLabel").textContent = searching ? "Search results" : "My files";
+  if (!searching) {
+    fillCards($("homeRecent"), all.slice().sort((a, b) => (b.opened || 0) - (a.opened || 0)).slice(0, 10), "No files yet.");
+    fillCards($("homeFav"), all.filter((m) => m.fav).sort((a, b) => (a.name || "").localeCompare(b.name || "")), "Tap the star next to a file below to keep it here.");
+  }
   const folders = Array.from(new Set(storedFolders().concat(all.map((m) => m.folder).filter(Boolean)))).sort((a, b) => a.localeCompare(b));
   if (lib.folder !== "all" && !folders.includes(lib.folder)) lib.folder = "all";
   /* folder chips */
@@ -64,8 +97,8 @@ async function renderLibrary() {
   }
   /* list */
   $("libSort").value = lib.sort;
-  let metas = all.filter((m) => lib.folder === "all" || m.folder === lib.folder);
   const q = lib.q.trim().toLowerCase();
+  let metas = all.filter((m) => q || lib.folder === "all" || m.folder === lib.folder);
   if (q) metas = metas.filter((m) => (m.name || "").toLowerCase().includes(q));
   if (lib.sort === "name") metas.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }));
   else if (lib.sort === "added") metas.sort((a, b) => (b.added || 0) - (a.added || 0));
@@ -105,7 +138,12 @@ async function renderLibrary() {
     more.setAttribute("aria-expanded", String(lib.actionsFor === m.id));
     more.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>';
     more.onclick = () => { lib.actionsFor = lib.actionsFor === m.id ? null : m.id; renderLibrary(); };
-    li.append(open, more);
+    const star = document.createElement("button");
+    star.type = "button"; star.className = "doc-star"; star.setAttribute("aria-pressed", String(!!m.fav));
+    star.setAttribute("aria-label", m.fav ? "Remove " + m.name + " from favorites" : "Add " + m.name + " to favorites");
+    star.innerHTML = STAR_SVG;
+    star.onclick = async () => { if (m.fav) delete m.fav; else m.fav = true; await DB.put("meta", m); renderLibrary(); };
+    li.append(open, star, more);
     if (lib.actionsFor === m.id) {
       const act = document.createElement("div"); act.className = "doc-actions";
       act.appendChild(inlineName("File name", m.name, "Rename", (name) => { renameDoc(m, name); lib.actionsFor = null; renderLibrary(); }, () => { lib.actionsFor = null; renderLibrary(); }));
