@@ -58,7 +58,7 @@ async function renderLibrary() {
   if (lib.folder !== "all" && !fset.has(lib.folder)) lib.folder = "all";
   const cur = lib.folder;
   const countTree = (path) => all.filter((m) => inTree(m.folder, path)).length;
-  const go = (path) => () => { lib.folder = path; lib.actionsFor = null; lib.renaming = false; lib.newFolder = false; saveLib(); renderLibrary(); };
+  const go = (path) => () => { lib.folder = path; lib.trash = false; lib.actionsFor = null; lib.renaming = false; lib.newFolder = false; saveLib(); renderLibrary(); };
   const folderIcon = () => {
     const ic = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     ic.setAttribute("viewBox", "0 0 24 24"); ic.innerHTML = '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
@@ -102,6 +102,7 @@ async function renderLibrary() {
       lib.newFolder = false; lib.folder = path; saveLib(); renderLibrary();
     }, () => { lib.newFolder = false; renderLibrary(); }));
   } else chipsEl.appendChild(chip(addLabel, null, false, () => { lib.newFolder = true; renderLibrary(); }, "chip-add"));
+  if (cur === "all") { const tc = trashChip(); if (tc) chipsEl.appendChild(tc); }
   /* folder tools */
   tools.innerHTML = "";
   tools.hidden = cur === "all";
@@ -141,6 +142,7 @@ async function renderLibrary() {
   sortMetas(metas, lib.sort);
   fillSizes(metas, renderLibrary);
   list.innerHTML = "";
+  if (lib.trash && cur === "all" && !q) { renderTrash(list); return; }
   if (!metas.length) {
     const msg = !all.length ? "No files yet. Tap Import from Files or New PDF to start."
       : q ? "No files match “" + lib.q.trim() + "”."
@@ -237,7 +239,7 @@ function when(t) {
   if (d.toDateString() === now.toDateString()) return "today " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
-function openLibrary() { lib.q = ""; $("libSearch").value = ""; lib.actionsFor = null; lib.moving = null; lib.newFolder = false; lib.renaming = false; $("libSheet").hidden = false; renderLibrary(); }
+function openLibrary() { lib.q = ""; $("libSearch").value = ""; lib.trash = false; lib.actionsFor = null; lib.moving = null; lib.newFolder = false; lib.renaming = false; $("libSheet").hidden = false; renderLibrary(); }
 function closeLibrary() { $("libSheet").hidden = true; }
 /* favorite the open file from the Files menu */
 const favItem = document.createElement("button");

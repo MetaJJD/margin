@@ -367,9 +367,9 @@ function renameDoc(m, name) {
   if (state.id === m.id) { state.name = name; $("docTitle").textContent = name; document.title = name + " · Margin"; }
 }
 async function deleteDoc(m) {
-  await DB.del("meta", m.id); await DB.del("files", m.id); await DB.del("ann", m.id);
+  await trashDoc(m);
   if (m.id !== state.id) dropTab(m.id);
-  toast("Deleted " + m.name);
+  toast("Moved “" + m.name + "” to Recently Deleted. You can bring it back for 30 days.", 4500);
   if (m.id === state.id) { tabs.skipStash = m.id; dropTab(m.id); const next = tabs.list[0]; if (next) await switchTab(next.id); else await openMostRecent(); }
 }
 const FSEP = "/";
