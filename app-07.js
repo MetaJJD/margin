@@ -372,6 +372,12 @@ async function deleteDoc(m) {
   toast("Deleted " + m.name);
   if (m.id === state.id) { tabs.skipStash = m.id; dropTab(m.id); const next = tabs.list[0]; if (next) await switchTab(next.id); else await openMostRecent(); }
 }
+const FSEP = "/";
+const parentOf = (fd) => (fd.indexOf(FSEP) >= 0 ? fd.slice(0, fd.lastIndexOf(FSEP)) : null);
+const leafOf = (fd) => fd.slice(fd.lastIndexOf(FSEP) + 1);
+const inTree = (fd, root) => !!fd && (fd === root || fd.indexOf(root + FSEP) === 0);
+const showPath = (fd) => String(fd).split(FSEP).join(" › ");
+const cleanFolderName = (n) => String(n || "").replace(/\//g, "-").trim();
 function chip(label, count, pressed, onClick, extraClass) {
   const b = document.createElement("button");
   b.type = "button"; b.className = "chip" + (extraClass ? " " + extraClass : "");

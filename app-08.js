@@ -48,48 +48,82 @@ async function renderLibrary() {
     fillCards($("homeRecent"), all.slice().sort((a, b) => (b.opened || 0) - (a.opened || 0)).slice(0, 10), "No files yet.");
     fillCards($("homeFav"), all.filter((m) => m.fav).sort((a, b) => (a.name || "").localeCompare(b.name || "")), "Tap the star next to a file below to keep it here.");
   }
-  const folders = Array.from(new Set(storedFolders().concat(all.map((m) => m.folder).filter(Boolean)))).sort((a, b) => a.localeCompare(b));
-  if (lib.folder !== "all" && !folders.includes(lib.folder)) lib.folder = "all";
-  /* folder chips */
-  chipsEl.innerHTML = "";
-  chipsEl.appendChild(chip("All files", all.length, lib.folder === "all", () => { lib.folder = "all"; lib.actionsFor = null; saveLib(); renderLibrary(); }));
-  for (const fd of folders) {
-    const n = all.filter((m) => m.folder === fd).length;
+  /* folders can hold subfolders: a subfolder is stored as "Parent/Child" */
+  const fset = new Set();
+  for (const fd of storedFolders().concat(all.map((m) => m.folder).filter(Boolean))) {
+    const parts = String(fd).split(FSEP);
+    for (let k = 1; k <= parts.length; k++) fset.add(parts.slice(0, k).join(FSEP));
+  }
+  const folders = Array.from(fset).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (lib.folder !== "all" && !fset.has(lib.folder)) lib.folder = "all";
+  const cur = lib.folder;
+  const countTree = (path) => all.filter((m) => inTree(m.folder, path)).length;
+  const go = (path) => () => { lib.folder = path; lib.actionsFor = null; lib.renaming = false; lib.newFolder = false; saveLib(); renderLibrary(); };
+  const folderIcon = () => {
     const ic = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     ic.setAttribute("viewBox", "0 0 24 24"); ic.innerHTML = '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
-    const c = chip(fd, n, lib.folder === fd, () => { lib.folder = fd; lib.actionsFor = null; lib.renaming = false; saveLib(); renderLibrary(); });
-    c.prepend(ic);
+    return ic;
+  };
+  /* folder chips: where you are (All files › Biology › Chapter 1), then the folders inside it */
+  chipsEl.innerHTML = "";
+  chipsEl.appendChild(chip("All files", all.length, cur === "all", go("all")));
+  if (cur !== "all") {
+    const parts = cur.split(FSEP);
+    parts.forEach((part, k) => {
+      const path = parts.slice(0, k + 1).join(FSEP);
+      const sep = document.createElement("span");
+      sep.textContent = "›"; sep.setAttribute("aria-hidden", "true");
+      sep.style.cssText = "align-self:center;color:var(--muted);font-size:18px;";
+      chipsEl.appendChild(sep);
+      const c = chip(part, countTree(path), path === cur, go(path));
+      c.prepend(folderIcon());
+      chipsEl.appendChild(c);
+    });
+    const br = document.createElement("span"); br.style.cssText = "flex-basis:100%;height:0;";
+    chipsEl.appendChild(br);
+  }
+  const kids = folders.filter((fd) => (cur === "all" ? fd.indexOf(FSEP) < 0 : parentOf(fd) === cur));
+  for (const fd of kids) {
+    const c = chip(leafOf(fd), countTree(fd), false, go(fd));
+    c.prepend(folderIcon());
     chipsEl.appendChild(c);
   }
+  const addLabel = cur === "all" ? "+ New folder" : "+ New subfolder";
   if (lib.newFolder) {
-    chipsEl.appendChild(inlineName("Folder name", "", "Create", (name) => {
+    chipsEl.appendChild(inlineName(cur === "all" ? "Folder name" : "Subfolder name", "", "Create", (name) => {
+      name = cleanFolderName(name);
       if (!name) return;
-      const cur = storedFolders(); if (!cur.includes(name)) { cur.push(name); saveFolders(cur); }
-      lib.newFolder = false; lib.folder = name; saveLib(); renderLibrary();
+      const path = cur === "all" ? name : cur + FSEP + name;
+      const list = storedFolders(); if (!list.includes(path)) { list.push(path); saveFolders(list); }
+      lib.newFolder = false; lib.folder = path; saveLib(); renderLibrary();
     }, () => { lib.newFolder = false; renderLibrary(); }));
-  } else chipsEl.appendChild(chip("+ New folder", null, false, () => { lib.newFolder = true; renderLibrary(); }, "chip-add"));
+  } else chipsEl.appendChild(chip(addLabel, null, false, () => { lib.newFolder = true; renderLibrary(); }, "chip-add"));
   /* folder tools */
   tools.innerHTML = "";
-  tools.hidden = lib.folder === "all";
-  if (lib.folder !== "all") {
+  tools.hidden = cur === "all";
+  if (cur !== "all") {
+    const parent = parentOf(cur);
     if (lib.renaming) {
-      tools.appendChild(inlineName("Folder name", lib.folder, "Rename", async (name) => {
-        if (!name || name === lib.folder) { lib.renaming = false; renderLibrary(); return; }
-        const old = lib.folder;
-        for (const m of all) if (m.folder === old) { m.folder = name; await DB.put("meta", m); }
-        saveFolders(storedFolders().map((x) => (x === old ? name : x)).filter((x, i, arr) => arr.indexOf(x) === i));
-        lib.folder = name; lib.renaming = false; saveLib(); renderLibrary();
+      tools.appendChild(inlineName("Folder name", leafOf(cur), "Rename", async (name) => {
+        name = cleanFolderName(name);
+        const np = name ? (parent ? parent + FSEP + name : name) : cur;
+        if (np === cur) { lib.renaming = false; renderLibrary(); return; }
+        if (fset.has(np)) { toast("There's already a folder with that name here."); return; }
+        const swap = (fd) => (inTree(fd, cur) ? np + fd.slice(cur.length) : fd);
+        for (const m of all) if (inTree(m.folder, cur)) { m.folder = swap(m.folder); await DB.put("meta", m); }
+        saveFolders(storedFolders().map(swap).filter((x, k, arr) => arr.indexOf(x) === k));
+        lib.folder = np; lib.renaming = false; saveLib(); renderLibrary();
       }, () => { lib.renaming = false; renderLibrary(); }));
     } else {
       const rn = document.createElement("button"); rn.type = "button"; rn.className = "link-btn"; rn.textContent = "Rename folder";
       rn.onclick = () => { lib.renaming = true; renderLibrary(); };
       const dl = document.createElement("button"); dl.type = "button"; dl.className = "link-btn danger"; dl.textContent = "Delete folder";
+      const dest = parent ? leafOf(parent) : "All files";
       dl.onclick = async () => {
-        if (!dl.classList.contains("armed")) { dl.classList.add("armed"); dl.textContent = "Tap again: files move to All files"; setTimeout(() => { dl.classList.remove("armed"); dl.textContent = "Delete folder"; }, 3500); return; }
-        const old = lib.folder;
-        for (const m of all) if (m.folder === old) { delete m.folder; await DB.put("meta", m); }
-        saveFolders(storedFolders().filter((x) => x !== old));
-        lib.folder = "all"; saveLib(); toast("Folder deleted. Its files are still in All files."); renderLibrary();
+        if (!dl.classList.contains("armed")) { dl.classList.add("armed"); dl.textContent = "Tap again: its files move to " + dest; setTimeout(() => { dl.classList.remove("armed"); dl.textContent = "Delete folder"; }, 3500); return; }
+        for (const m of all) if (inTree(m.folder, cur)) { if (parent) m.folder = parent; else delete m.folder; await DB.put("meta", m); }
+        saveFolders(storedFolders().filter((x) => !inTree(x, cur)));
+        lib.folder = parent || "all"; saveLib(); toast("Folder deleted. Its files are now in " + dest + "."); renderLibrary();
       };
       const hint = document.createElement("span"); hint.className = "fine"; hint.textContent = "Files you open or create now go into this folder.";
       tools.append(rn, dl, hint);
@@ -98,7 +132,7 @@ async function renderLibrary() {
   /* list */
   $("libSort").value = lib.sort;
   const q = lib.q.trim().toLowerCase();
-  let metas = all.filter((m) => q || lib.folder === "all" || m.folder === lib.folder);
+  let metas = all.filter((m) => q || cur === "all" || m.folder === cur);
   if (q) metas = metas.filter((m) => (m.name || "").toLowerCase().includes(q));
   if (lib.sort === "name") metas.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }));
   else if (lib.sort === "added") metas.sort((a, b) => (b.added || 0) - (a.added || 0));
@@ -107,6 +141,7 @@ async function renderLibrary() {
   if (!metas.length) {
     const msg = !all.length ? "No files yet. Tap Import from Files or New PDF to start."
       : q ? "No files match “" + lib.q.trim() + "”."
+      : kids.length ? "No files directly in this folder. Open a subfolder above, or import a file while this folder is selected."
       : "This folder is empty. Import a file while this folder is selected, or move files here with ⋯ on any file.";
     const li = document.createElement("li"); const p = document.createElement("p"); p.className = "empty"; p.textContent = msg; li.appendChild(p); list.appendChild(li);
     return;
@@ -125,7 +160,7 @@ async function renderLibrary() {
     const notes = m.notes || 0;
     sm.textContent = (m.pages || "?") + (m.pages === 1 ? " page" : " pages") + " · " + notes + (notes === 1 ? " mark" : " marks") + " · opened " + when(m.opened);
     info.append(bname, sm);
-    if (m.folder && lib.folder === "all") { const tag = document.createElement("span"); tag.className = "doc-folder"; tag.textContent = m.folder; info.appendChild(tag); }
+    if (m.folder && (cur === "all" || q)) { const tag = document.createElement("span"); tag.className = "doc-folder"; tag.textContent = showPath(m.folder); info.appendChild(tag); }
     open.append(th, info);
     open.onclick = async () => {
       if (m.id === state.id) { closeLibrary(); return; }
@@ -151,9 +186,9 @@ async function renderLibrary() {
       const lab = document.createElement("label"); lab.className = "fine"; lab.textContent = "Folder";
       const sel = document.createElement("select"); sel.className = "select"; sel.setAttribute("aria-label", "Folder for " + m.name);
       const none = document.createElement("option"); none.value = ""; none.textContent = "No folder"; sel.appendChild(none);
-      for (const fd of folders) { const o = document.createElement("option"); o.value = fd; o.textContent = fd; sel.appendChild(o); }
+      for (const fd of folders) { const o = document.createElement("option"); o.value = fd; o.textContent = "  ".repeat(fd.split(FSEP).length - 1) + leafOf(fd); sel.appendChild(o); }
       sel.value = m.folder || "";
-      sel.onchange = async () => { if (sel.value) m.folder = sel.value; else delete m.folder; await DB.put("meta", m); toast(sel.value ? "Moved to " + sel.value : "Removed from folder"); renderLibrary(); };
+      sel.onchange = async () => { if (sel.value) m.folder = sel.value; else delete m.folder; await DB.put("meta", m); toast(sel.value ? "Moved to " + showPath(sel.value) : "Removed from folder"); renderLibrary(); };
       lab.appendChild(sel);
       const del = document.createElement("button");
       del.type = "button"; del.className = "del"; del.textContent = "Delete file";
