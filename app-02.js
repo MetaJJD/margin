@@ -350,14 +350,73 @@ function playAnim(el, cls) {
   el.addEventListener("animationend", done);
   setTimeout(done, 600);
 }
+/* one-page view: pages turn like a book (forward: the old page lifts away to the left; back: the earlier page swings in over it) */
+let turning = null;
+function snapshotPage(p) {
+  if (!p || p.wrap.hidden || !p.pdfCanvas) return null;
+  const box = document.createElement("div");
+  box.setAttribute("aria-hidden", "true");
+  box.style.cssText = "position:absolute;pointer-events:none;background:#fff;border-radius:2px;box-shadow:var(--shadow-page);backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;will-change:transform;" +
+    "left:" + p.wrap.offsetLeft + "px;top:" + p.wrap.offsetTop + "px;width:" + p.wrap.offsetWidth + "px;height:" + p.wrap.offsetHeight + "px;filter:" + getComputedStyle(p.wrap).filter + ";";
+  for (const c of [p.pdfCanvas, p.detail, p.inkK ? p.ink : null]) {
+    if (!c || !c.width) continue;
+    const cc = document.createElement("canvas");
+    cc.width = c.width; cc.height = c.height;
+    cc.getContext("2d").drawImage(c, 0, 0);
+    cc.style.cssText = "position:absolute;display:block;left:" + (c.style.left || "0") + ";top:" + (c.style.top || "0") + ";width:" + (c.style.width || "100%") + ";height:" + (c.style.height || "100%") + ";" + (c === p.ink ? "mix-blend-mode:multiply;" : "");
+    box.appendChild(cc);
+  }
+  return box;
+}
+function shadeLayer(dir) {
+  const d = document.createElement("div");
+  d.style.cssText = "position:absolute;inset:0;pointer-events:none;opacity:0;background:linear-gradient(" + dir + ", rgba(0,0,0,.38), rgba(0,0,0,.04) 70%);";
+  return d;
+}
+function turnPage(snap, np, fwd) {
+  if (turning) turning();
+  if (!snap) return;
+  const ms = 560, ease = "cubic-bezier(.45, .05, .3, 1)";
+  const persp = "perspective(" + Math.round(Math.max(1400, np.wrap.offsetWidth * 2.4)) + "px) ";
+  const anims = [];
+  let shade = null;
+  viewer.appendChild(snap);
+  if (fwd) {
+    snap.style.zIndex = "3"; snap.style.transformOrigin = "left center";
+    shade = shadeLayer("to left"); snap.appendChild(shade);
+    anims.push(snap.animate([{ transform: persp + "rotateY(0deg)" }, { transform: persp + "rotateY(-100deg)" }], { duration: ms, easing: ease, fill: "forwards" }));
+  } else {
+    snap.style.zIndex = "0";
+    np.wrap.style.zIndex = "1"; np.wrap.style.transformOrigin = "left center";
+    np.wrap.style.backfaceVisibility = np.wrap.style.webkitBackfaceVisibility = "hidden";
+    shade = shadeLayer("to right"); shade.style.opacity = ".5"; shade.style.zIndex = "9"; np.wrap.appendChild(shade);
+    anims.push(np.wrap.animate([{ transform: persp + "rotateY(-100deg)" }, { transform: persp + "rotateY(0deg)" }], { duration: ms, easing: ease }));
+  }
+  anims.push(shade.animate(fwd ? [{ opacity: 0 }, { opacity: 0.6 }] : [{ opacity: 0.55 }, { opacity: 0 }], { duration: ms, easing: ease, fill: "forwards" }));
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true; turning = null; clearTimeout(t);
+    anims.forEach((a) => { try { a.cancel(); } catch (e) {} });
+    snap.querySelectorAll("canvas").forEach((c) => { c.width = 0; });
+    snap.remove(); shade.remove();
+    np.wrap.style.zIndex = ""; np.wrap.style.transformOrigin = ""; np.wrap.style.backfaceVisibility = np.wrap.style.webkitBackfaceVisibility = "";
+  };
+  const t = setTimeout(finish, ms + 300);
+  anims[0].finished.then(finish, finish);
+  turning = finish;
+}
 function showSingle(n, animate, axis) {
   n = Math.max(1, Math.min(state.pages.length, n));
   const from = state.curPage || 1;
+  const snap = animate && n !== from && !reduceMotion.matches && typeof Element.prototype.animate === "function" ? snapshotPage(state.pages[from - 1]) : null;
   state.curPage = n;
   for (const p of state.pages) p.wrap.hidden = p.n !== n;
   viewer.scrollTop = 0; viewer.scrollLeft = 0;
   updateVisible();
-  if (animate && n !== from) playAnim(state.pages[n - 1].wrap, axis === "y" ? (n > from ? "enter-up" : "enter-down") : (n > from ? "enter-next" : "enter-prev"));
+  if (!animate || n === from) return;
+  if (snap) turnPage(snap, state.pages[n - 1], n > from);
+  else playAnim(state.pages[n - 1].wrap, axis === "y" ? (n > from ? "enter-up" : "enter-down") : (n > from ? "enter-next" : "enter-prev"));
 }
 function pageStep(d, axis) {
   const n = (state.curPage || 1) + d;
