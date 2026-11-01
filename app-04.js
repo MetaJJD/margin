@@ -206,3 +206,89 @@ function eraseAt(pt) {
   }
   if (changed) drawInk(p);
 }
+
+/* Home: moving files between folders (Move picker and press-and-hold drag) */
+/* move a file into a folder ("" = no folder) */
+async function moveDocTo(m, dest) {
+  const cur = await DB.get("meta", m.id);
+  if (!cur) return;
+  if ((cur.folder || "") === dest) { lib.moving = null; renderLibrary(); return; }
+  if (dest) cur.folder = dest; else delete cur.folder;
+  await DB.put("meta", cur);
+  lib.moving = null; lib.actionsFor = null;
+  toast("Moved “" + cur.name + "” to " + (dest ? showPath(dest) : "All files") + ".");
+  renderLibrary();
+}
+/* press and hold a file on Home, then drop it on a folder to move it there */
+const fdrag = { timer: 0, cand: null, on: false, justDropped: false };
+const docListEl = $("docList");
+docListEl.style.webkitTouchCallout = "none";
+docListEl.addEventListener("contextmenu", (e) => { if (fdrag.cand || fdrag.on) e.preventDefault(); });
+docListEl.addEventListener("pointerdown", (e) => {
+  const open = e.target.closest(".doc-open");
+  if (!open || (e.pointerType === "mouse" && e.button !== 0) || fdrag.on) return;
+  const li = open.closest(".doc-row");
+  clearTimeout(fdrag.timer);
+  fdrag.cand = { li, id: e.pointerId, x: e.clientX, y: e.clientY };
+  fdrag.timer = setTimeout(startFileDrag, 450);
+});
+docListEl.addEventListener("pointermove", (e) => {
+  const c = fdrag.cand;
+  if (c && !fdrag.on && e.pointerId === c.id && Math.hypot(e.clientX - c.x, e.clientY - c.y) > 8) { clearTimeout(fdrag.timer); fdrag.cand = null; }
+  if (fdrag.on && e.pointerId === fdrag.id) { e.preventDefault(); moveFileDrag(e.clientX, e.clientY); }
+});
+docListEl.addEventListener("pointerup", (e) => endFileDrag(e, false));
+docListEl.addEventListener("pointercancel", (e) => endFileDrag(e, true));
+docListEl.addEventListener("touchmove", (e) => { if (fdrag.on) e.preventDefault(); }, { passive: false });
+docListEl.addEventListener("click", (e) => { if (fdrag.justDropped) { e.stopPropagation(); e.preventDefault(); } }, true);
+async function startFileDrag() {
+  const c = fdrag.cand;
+  if (!c || !c.li.isConnected) return;
+  const m = await DB.get("meta", c.li.dataset.id);
+  if (!m || fdrag.cand !== c) return;
+  Object.assign(fdrag, { on: true, id: c.id, li: c.li, m, target: undefined });
+  try { c.li.setPointerCapture(c.id); } catch (err) {}
+  c.li.style.opacity = "0.4";
+  const g = document.createElement("div");
+  g.style.cssText = "position:fixed;z-index:80;pointer-events:none;display:flex;align-items:center;gap:10px;max-width:260px;padding:8px 12px 8px 8px;border-radius:12px;background:var(--bar);color:var(--fg);box-shadow:0 0 0 2px var(--accent),0 14px 34px rgba(10,20,40,.3);font-weight:600;transform:rotate(-2deg);";
+  const th = c.li.querySelector(".doc-thumb");
+  if (th) { const t = th.cloneNode(true); t.style.flex = "none"; g.appendChild(t); }
+  const nm = document.createElement("span"); nm.textContent = m.name;
+  nm.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+  g.appendChild(nm);
+  document.body.appendChild(g);
+  fdrag.ghost = g;
+  toast("Drop it on a folder above to move it.", 2500);
+  moveFileDrag(c.x, c.y);
+  const scroller = $("libSheet").querySelector(".body");
+  const loop = () => {
+    if (!fdrag.on) return;
+    const r = scroller.getBoundingClientRect(), y = fdrag.ly;
+    const sp = y < r.top + 60 ? -Math.ceil((r.top + 60 - y) / 4) : y > r.bottom - 60 ? Math.ceil((y - r.bottom + 60) / 4) : 0;
+    if (sp) { scroller.scrollTop += sp; moveFileDrag(fdrag.lx, fdrag.ly); }
+    fdrag.raf = requestAnimationFrame(loop);
+  };
+  fdrag.raf = requestAnimationFrame(loop);
+}
+function moveFileDrag(x, y) {
+  fdrag.lx = x; fdrag.ly = y;
+  fdrag.ghost.style.left = (x + 18) + "px";
+  fdrag.ghost.style.top = (y + 18) + "px";
+  const el = document.elementFromPoint(x, y);
+  const t = el && el.closest ? el.closest("#folderChips [data-drop]") : null;
+  if (fdrag.hot && fdrag.hot !== t) { fdrag.hot.style.boxShadow = ""; fdrag.hot.style.transform = ""; }
+  fdrag.hot = t;
+  if (t) { t.style.boxShadow = "0 0 0 3px var(--accent)"; t.style.transform = "scale(1.06)"; }
+  fdrag.target = t ? t.dataset.drop : undefined;
+}
+function endFileDrag(e, cancelled) {
+  if (fdrag.cand && !fdrag.on && e.pointerId === fdrag.cand.id) { clearTimeout(fdrag.timer); fdrag.cand = null; return; }
+  if (!fdrag.on || e.pointerId !== fdrag.id) return;
+  fdrag.on = false; fdrag.cand = null;
+  cancelAnimationFrame(fdrag.raf);
+  fdrag.li.style.opacity = "";
+  fdrag.ghost.remove();
+  if (fdrag.hot) { fdrag.hot.style.boxShadow = ""; fdrag.hot.style.transform = ""; fdrag.hot = null; }
+  fdrag.justDropped = true; setTimeout(() => { fdrag.justDropped = false; }, 450);
+  if (!cancelled && fdrag.target !== undefined) moveDocTo(fdrag.m, fdrag.target);
+}
