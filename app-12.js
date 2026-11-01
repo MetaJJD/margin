@@ -126,6 +126,37 @@ function pillDrop(e) {
 fsPill.addEventListener("pointerup", pillDrop);
 fsPill.addEventListener("pointercancel", pillDrop);
 window.addEventListener("resize", () => layoutPill(false));
+/* writing tools in the full screen bar: move (select), pen, highlight, eraser, lasso */
+(function addPillTools() {
+  const anchor = $("fsFit"), btns = [];
+  const sep = document.createElement("span");
+  sep.setAttribute("aria-hidden", "true");
+  sep.style.cssText = "width:1px;height:24px;background:var(--line);margin:0 3px;flex:none;";
+  fsPill.insertBefore(sep, anchor);
+  for (const [tool, label] of [["hand", "Move and select"], ["pen", "Pen"], ["hl", "Highlighter"], ["eraser", "Eraser"], ["lasso", "Lasso"]]) {
+    const src = document.querySelector('.tool[data-tool="' + tool + '"]');
+    if (!src) continue;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "icon-btn"; b.dataset.fstool = tool;
+    b.setAttribute("aria-label", label); b.title = label;
+    const svg = src.querySelector("svg").cloneNode(true);
+    svg.style.fill = "none";
+    b.appendChild(svg);
+    b.onclick = () => src.click();
+    fsPill.insertBefore(b, anchor);
+    btns.push([b, src]);
+  }
+  const sep2 = sep.cloneNode(); fsPill.insertBefore(sep2, anchor);
+  const sync = () => btns.forEach(([b, src]) => {
+    const on = src.getAttribute("aria-pressed") === "true";
+    b.setAttribute("aria-pressed", String(on));
+    b.style.background = on ? "var(--chip-on)" : "";
+    b.style.color = on ? "var(--accent)" : "";
+  });
+  const mo = new MutationObserver(sync);
+  btns.forEach(([, src]) => mo.observe(src, { attributes: true, attributeFilter: ["aria-pressed"] }));
+  sync();
+})();
 
 /* ---------- full screen ---------- */
 function nativeFsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
