@@ -68,11 +68,22 @@ imgSel.addEventListener("pointerdown", (e) => {
   try { imgSel.setPointerCapture(e.pointerId); } catch (err) {}
   const it = sel.item, bx = boxOf(it);
   imgDrag = { id: e.pointerId, size: e.target === imgGrip && it.type === "img", sx: e.clientX, sy: e.clientY, bw: bx.w, bh: bx.h, before: it.type === "img" ? { x: it.x, y: it.y, w: it.w, h: it.h } : { x: it.x, y: it.y } };
+  if (!imgDrag.size) snapStart({
+    p: sel.p, exclude: [it],
+    box: () => { const b = boxOf(it); return { x1: it.x, y1: it.y, x2: it.x + b.w, y2: it.y + b.h }; },
+    move: (dx, dy) => {
+      if (!imgDrag) return;
+      imgDrag.sx -= dx * sel.p.s; imgDrag.sy -= dy * sel.p.s;
+      it.x = round2(it.x + dx); it.y = round2(it.y + dy);
+      updateImgSel(); drawInk(sel.p);
+    }
+  }, e);
 });
 imgSel.addEventListener("pointermove", (e) => {
   if (!imgDrag || e.pointerId !== imgDrag.id) return;
   e.stopPropagation(); e.preventDefault();
   const { p, item } = sel, b = imgDrag.before;
+  if (!imgDrag.size) snapMove(e);
   const dx = (e.clientX - imgDrag.sx) / p.s, dy = (e.clientY - imgDrag.sy) / p.s;
   if (imgDrag.size) {
     const ar = b.h / b.w;
@@ -95,6 +106,7 @@ function imgDragEnd(e) {
   if (!imgDrag || e.pointerId !== imgDrag.id) return;
   e.stopPropagation();
   const d = imgDrag; imgDrag = null;
+  snapEnd();
   if (!sel) return;
   const { p, item } = sel, b = d.before;
   const after = item.type === "img" ? { x: item.x, y: item.y, w: item.w, h: item.h } : { x: item.x, y: item.y };
