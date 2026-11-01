@@ -97,7 +97,7 @@ $("viewOpts").addEventListener("click", (e) => {
 $("zoomFit").onclick = () => setZoom(1);
 $("pagePop").addEventListener("click", (e) => { if (e.target.closest(".menu-item")) hidePop(); });
 $("filesPop").addEventListener("click", (e) => { if (e.target.closest(".menu-item")) hidePop(); });
-$("fmOpen").onclick = () => $("fileInput").click();
+$("fmOpen").onclick = () => openLibrary();
 $("fmNew").onclick = () => openPageSheet("new");
 
 /* ---------- sample document ---------- */
