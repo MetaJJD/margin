@@ -13,7 +13,7 @@ function b64ToBytes(b) {
 async function backupAll() {
   if (textEdit) closeTextEdit();
   clearTimeout(saveTimer);
-  if (state.id) await DB.put("ann", { id: state.id, ann: stripAnn(state.ann), bookmarks: state.bookmarks || [], pageNumbers: state.pageNumbers || null });
+  if (state.id) await DB.put("ann", { id: state.id, ann: stripAnn(state.ann), bookmarks: state.bookmarks || [], pageNumbers: state.pageNumbers || null }, true);
   const metas = await DB.all("meta");
   if (!metas.length) { toast("There's nothing to back up yet."); return; }
   toast("Preparing your backup…", 30000);
@@ -42,9 +42,9 @@ async function restoreBackup(file) {
     if (!d || !d.meta || !d.meta.id || !d.pdf) continue;
     const id = d.meta.id;
     try {
-      await DB.put("files", { id, bytes: b64ToBytes(d.pdf) });
+      await DB.put("files", { id, bytes: b64ToBytes(d.pdf) }, true);
       await DB.put("meta", d.meta);
-      if (d.ann) await DB.put("ann", Object.assign({}, d.ann, { id }));
+      if (d.ann) await DB.put("ann", Object.assign({}, d.ann, { id }), true);
       delete tabs.mem[id];
       n++;
     } catch (e) {}

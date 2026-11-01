@@ -66,7 +66,9 @@ async function renderLibrary() {
   };
   /* folder chips: where you are (All files › Biology › Chapter 1), then the folders inside it */
   chipsEl.innerHTML = "";
-  chipsEl.appendChild(chip("All files", all.length, cur === "all", go("all")));
+  const allChip = chip("All files", all.length, cur === "all", go("all"));
+  allChip.dataset.drop = "";
+  chipsEl.appendChild(allChip);
   if (cur !== "all") {
     const parts = cur.split(FSEP);
     parts.forEach((part, k) => {
@@ -77,6 +79,7 @@ async function renderLibrary() {
       chipsEl.appendChild(sep);
       const c = chip(part, countTree(path), path === cur, go(path));
       c.prepend(folderIcon());
+      c.dataset.drop = path;
       chipsEl.appendChild(c);
     });
     const br = document.createElement("span"); br.style.cssText = "flex-basis:100%;height:0;";
@@ -86,6 +89,7 @@ async function renderLibrary() {
   for (const fd of kids) {
     const c = chip(leafOf(fd), countTree(fd), false, go(fd));
     c.prepend(folderIcon());
+    c.dataset.drop = fd;
     chipsEl.appendChild(c);
   }
   const addLabel = cur === "all" ? "+ New folder" : "+ New subfolder";
@@ -130,13 +134,12 @@ async function renderLibrary() {
     }
   }
   /* list */
-  $("libSort").value = lib.sort;
+  $("libSort").value = lib.sort = sortKey(lib.sort);
   const q = lib.q.trim().toLowerCase();
   let metas = all.filter((m) => q || cur === "all" || m.folder === cur);
   if (q) metas = metas.filter((m) => (m.name || "").toLowerCase().includes(q));
-  if (lib.sort === "name") metas.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }));
-  else if (lib.sort === "added") metas.sort((a, b) => (b.added || 0) - (a.added || 0));
-  else metas.sort((a, b) => (b.opened || 0) - (a.opened || 0));
+  sortMetas(metas, lib.sort);
+  fillSizes(metas, renderLibrary);
   list.innerHTML = "";
   if (!metas.length) {
     const msg = !all.length ? "No files yet. Tap Import from Files or New PDF to start."
@@ -146,9 +149,10 @@ async function renderLibrary() {
     const li = document.createElement("li"); const p = document.createElement("p"); p.className = "empty"; p.textContent = msg; li.appendChild(p); list.appendChild(li);
     return;
   }
+  list.appendChild(docHead());
   for (const m of metas) {
     const li = document.createElement("li");
-    li.className = "doc-row";
+    li.className = "doc-row"; li.dataset.id = m.id;
     const open = document.createElement("button");
     open.type = "button"; open.className = "doc-open" + (m.id === state.id ? " current" : "");
     const th = document.createElement("span"); th.className = "doc-thumb";
@@ -158,10 +162,11 @@ async function renderLibrary() {
     const bname = document.createElement("b"); bname.textContent = m.name;
     const sm = document.createElement("small");
     const notes = m.notes || 0;
-    sm.textContent = (m.pages || "?") + (m.pages === 1 ? " page" : " pages") + " · " + notes + (notes === 1 ? " mark" : " marks") + " · opened " + when(m.opened);
+    sm.textContent = docDetails(m);
+    sm.title = notes + (notes === 1 ? " mark" : " marks") + " · opened " + when(m.opened);
     info.append(bname, sm);
     if (m.folder && (cur === "all" || q)) { const tag = document.createElement("span"); tag.className = "doc-folder"; tag.textContent = showPath(m.folder); info.appendChild(tag); }
-    open.append(th, info);
+    open.append(th, info, docCols(m));
     open.onclick = async () => {
       if (m.id === state.id) { closeLibrary(); return; }
       const f = await DB.get("files", m.id);
@@ -183,13 +188,26 @@ async function renderLibrary() {
       const act = document.createElement("div"); act.className = "doc-actions";
       act.appendChild(inlineName("File name", m.name, "Rename", (name) => { renameDoc(m, name); lib.actionsFor = null; renderLibrary(); }, () => { lib.actionsFor = null; renderLibrary(); }));
       const row = document.createElement("div"); row.className = "doc-actions-row";
-      const lab = document.createElement("label"); lab.className = "fine"; lab.textContent = "Folder";
-      const sel = document.createElement("select"); sel.className = "select"; sel.setAttribute("aria-label", "Folder for " + m.name);
-      const none = document.createElement("option"); none.value = ""; none.textContent = "No folder"; sel.appendChild(none);
-      for (const fd of folders) { const o = document.createElement("option"); o.value = fd; o.textContent = "  ".repeat(fd.split(FSEP).length - 1) + leafOf(fd); sel.appendChild(o); }
-      sel.value = m.folder || "";
-      sel.onchange = async () => { if (sel.value) m.folder = sel.value; else delete m.folder; await DB.put("meta", m); toast(sel.value ? "Moved to " + showPath(sel.value) : "Removed from folder"); renderLibrary(); };
-      lab.appendChild(sel);
+      const lab = document.createElement("span"); lab.className = "fine";
+      lab.textContent = "In: " + (m.folder ? showPath(m.folder) : "All files (no folder)");
+      const mv = document.createElement("button"); mv.type = "button"; mv.className = "btn"; mv.textContent = lib.moving === m.id ? "Cancel move" : "Move…";
+      mv.onclick = () => { lib.moving = lib.moving === m.id ? null : m.id; renderLibrary(); };
+      let pick = null;
+      if (lib.moving === m.id) {
+        pick = document.createElement("div"); pick.className = "move-pick";
+        const head = document.createElement("div"); head.className = "fine"; head.textContent = "Choose where to move it:";
+        pick.appendChild(head);
+        for (const dest of [""].concat(folders)) {
+          const b = document.createElement("button"); b.type = "button"; b.className = "move-dest";
+          b.style.paddingLeft = (10 + (dest ? dest.split(FSEP).length - 1 : 0) * 18) + "px";
+          b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span></span>';
+          b.querySelector("span").textContent = dest ? leafOf(dest) : "All files (no folder)";
+          const here = (m.folder || "") === dest;
+          if (here) { b.disabled = true; b.querySelector("span").textContent += "  (here now)"; }
+          b.onclick = () => moveDocTo(m, dest);
+          pick.appendChild(b);
+        }
+      }
       const del = document.createElement("button");
       del.type = "button"; del.className = "del"; del.textContent = "Delete file";
       del.onclick = async () => {
@@ -202,22 +220,24 @@ async function renderLibrary() {
         await deleteDoc(m);
         renderLibrary();
       };
-      row.append(lab, del);
+      row.style.justifyContent = "flex-start"; del.style.marginLeft = "auto";
+      row.append(lab, mv, del);
       act.appendChild(row);
+      if (pick) act.appendChild(pick);
       li.appendChild(act);
     }
     list.appendChild(li);
   }
 }
 $("libSearch").addEventListener("input", () => { lib.q = $("libSearch").value; renderLibrary(); });
-$("libSort").addEventListener("change", () => { lib.sort = $("libSort").value; saveLib(); renderLibrary(); });
+$("libSort").addEventListener("change", () => setSort($("libSort").value));
 function when(t) {
   if (!t) return "never";
   const d = new Date(t), now = new Date();
   if (d.toDateString() === now.toDateString()) return "today " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
-function openLibrary() { lib.q = ""; $("libSearch").value = ""; lib.actionsFor = null; lib.newFolder = false; lib.renaming = false; $("libSheet").hidden = false; renderLibrary(); }
+function openLibrary() { lib.q = ""; $("libSearch").value = ""; lib.actionsFor = null; lib.moving = null; lib.newFolder = false; lib.renaming = false; $("libSheet").hidden = false; renderLibrary(); }
 function closeLibrary() { $("libSheet").hidden = true; }
 /* favorite the open file from the Files menu */
 const favItem = document.createElement("button");

@@ -108,3 +108,31 @@ body.read-sepia .gv-page { filter: sepia(.38) saturate(1.1) brightness(.97); }
 .row2 .emode button { height: 32px; min-width: 36px; padding: 0 6px; }
 .row2 .fontsel { height: 32px; min-width: 104px; font-size: 13.5px; }
 .row2 .tool-hint { font-size: 12.5px; }
+/* Move picker in a file's ⋯ panel */
+.move-pick { display: flex; flex-direction: column; gap: 2px; padding: 8px; margin-top: 4px; background: var(--chip); border-radius: 12px; max-height: 280px; overflow-y: auto; }
+.move-pick .fine { padding: 2px 6px 6px; }
+.move-dest { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--fg); text-align: left; cursor: pointer; font-weight: 500; }
+.move-dest:hover:not(:disabled) { background: var(--bar); }
+.move-dest:disabled { color: var(--muted); cursor: default; }
+.move-dest svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--accent); stroke-width: 1.8; }
+.fm-sortrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); margin-top: 4px; padding: 6px 4px 2px 0; }
+#filesPop .fm-sortrow .fm-label { border-top: 0; margin-top: 0; padding: 0 10px; }
+.fm-sort { width: auto; height: 30px; font-size: 13px; padding: 0 28px 0 10px; flex: none; }
+#recentList { max-height: 320px; overflow-y: auto; }
+.recent-list .menu-item small + small { margin-top: 1px; }
+.doc-cols { display: none; }
+.docs li.doc-head { display: none; }
+@media (min-width: 760px) {
+  .doc-info small { display: none; }
+  .doc-open .doc-info { flex: 1; }
+  .doc-cols { display: flex; flex: none; margin-left: auto; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .doc-cols span, .dh-row .dh { flex: none; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 8px; box-sizing: border-box; }
+  .c-pg { width: 58px; } .c-sz { width: 78px; } .c-dt { width: 148px; }
+  .docs li.doc-head { display: grid; grid-template-columns: minmax(0, 1fr) 40px 40px; gap: 4px 8px; padding: 2px 0 6px; border-top: 0; }
+  .dh-row { display: flex; align-items: center; min-width: 0; }
+  .dh-row .dh-thumb { width: 54px; flex: none; }
+  .dh-row .dh { line-height: 28px; padding-right: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); background: none; border: 0; height: 28px; border-radius: 7px; font-family: inherit; }
+  .dh-row .dh-name { flex: 1; min-width: 0; text-align: left; padding-left: 0; margin-right: 12px; }
+  .dh-row button.dh { cursor: pointer; } .dh-row button.dh:hover { color: var(--fg); }
+  .dh-row .dh.on { color: var(--accent); }
+}

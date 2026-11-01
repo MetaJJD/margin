@@ -292,3 +292,98 @@ function endFileDrag(e, cancelled) {
   fdrag.justDropped = true; setTimeout(() => { fdrag.justDropped = false; }, 450);
   if (!cancelled && fdrag.target !== undefined) moveDocTo(fdrag.m, fdrag.target);
 }
+/* Home and Files menu: file details (pages, size, created, modified) and sorting */
+const SORTS = [["name", "Name A–Z"], ["name-za", "Name Z–A"], ["created", "Date created: newest"], ["created-old", "Date created: oldest"],
+  ["modified", "Last modified: newest"], ["modified-old", "Last modified: oldest"], ["recent", "Recently opened"]];
+function sortKey(v) { return v === "added" ? "created" : SORTS.some((x) => x[0] === v) ? v : "recent"; }
+function modOf(m) { return m.modified || m.added || 0; }
+function cmpName(a, b) { return (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }); }
+function sortMetas(list, how) {
+  const by = {
+    name: cmpName, "name-za": (a, b) => cmpName(b, a),
+    created: (a, b) => (b.added || 0) - (a.added || 0), "created-old": (a, b) => (a.added || 0) - (b.added || 0),
+    modified: (a, b) => modOf(b) - modOf(a), "modified-old": (a, b) => modOf(a) - modOf(b),
+    recent: (a, b) => (b.opened || 0) - (a.opened || 0)
+  };
+  return list.sort(by[sortKey(how)]);
+}
+function fmtSize(n) {
+  if (!n) return "—";
+  if (n < 1024) return n + " B";
+  if (n < 1048576) return Math.round(n / 1024) + " KB";
+  return (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + " MB";
+}
+function fmtDate(t, dayOnly) {
+  if (!t) return "—";
+  const d = new Date(t), now = new Date();
+  const hm = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) return dayOnly ? "Today" : "Today " + hm;
+  const o = { month: "short", day: "numeric" };
+  if (d.getFullYear() !== now.getFullYear()) o.year = "numeric";
+  return d.toLocaleDateString([], o) + (dayOnly ? "" : ", " + hm);
+}
+function docDetails(m) {
+  return (m.pages || "?") + (m.pages === 1 ? " page" : " pages") + " · " + fmtSize(m.size) + " · Created " + fmtDate(m.added) + " · Modified " + fmtDate(modOf(m));
+}
+function docCols(m) {
+  const c = document.createElement("span"); c.className = "doc-cols";
+  for (const [k, v] of [["pg", String(m.pages || "?")], ["sz", fmtSize(m.size)], ["dt", fmtDate(m.added)], ["dt", fmtDate(modOf(m))]]) {
+    const x = document.createElement("span"); x.className = "c-" + k; x.textContent = v; c.appendChild(x);
+  }
+  return c;
+}
+function setSort(v) { lib.sort = sortKey(v); saveLib(); renderLibrary(); if (openPop === $("filesPop")) renderRecent(); }
+/* column titles above the file list on wide screens; tap Name, Created or Modified to sort by it */
+function docHead() {
+  const li = document.createElement("li"); li.className = "doc-head";
+  const row = document.createElement("div"); row.className = "dh-row";
+  const sp = document.createElement("span"); sp.className = "dh-thumb"; row.appendChild(sp);
+  const cur = sortKey(lib.sort);
+  const cell = (label, cls, a, b) => {
+    const el = document.createElement(a ? "button" : "span"); el.className = "dh " + cls; el.textContent = label;
+    if (a) {
+      el.type = "button";
+      if (cur === a || cur === b) { el.classList.add("on"); el.textContent += cur === a ? (a === "name" ? " ↑" : " ↓") : (a === "name" ? " ↓" : " ↑"); }
+      el.onclick = () => setSort(cur === a ? b : a);
+    }
+    row.appendChild(el);
+  };
+  cell("Name", "dh-name", "name", "name-za");
+  cell("Pages", "c-pg"); cell("Size", "c-sz");
+  cell("Created", "c-dt", "created", "created-old"); cell("Modified", "c-dt", "modified", "modified-old");
+  li.append(row, document.createElement("span"), document.createElement("span"));
+  return li;
+}
+/* the Files menu gets a sort menu next to its file list */
+(() => {
+  const lab = document.querySelector("#filesPop .fm-label");
+  const row = document.createElement("div"); row.className = "fm-sortrow";
+  const sel = document.createElement("select"); sel.className = "select fm-sort"; sel.id = "fmSort"; sel.setAttribute("aria-label", "Sort files");
+  lab.replaceWith(row); lab.textContent = "Files"; row.append(lab, sel);
+  $("libSort").innerHTML = "";
+  for (const s of [$("libSort"), sel]) for (const [v, t] of SORTS) { const o = document.createElement("option"); o.value = v; o.textContent = t; s.appendChild(o); }
+  sel.addEventListener("change", () => setSort(sel.value));
+})();
+/* record the date modified (and the file size) whenever a file or its notes are saved.
+   Pass quiet = true to save without counting it as a change (backup, restore). */
+const dbPut = DB.put.bind(DB);
+DB.put = (s, v, quiet) => {
+  const r = dbPut(s, v);
+  if (!quiet && (s === "files" || s === "ann") && v && v.id) r.then((ok) => { if (ok !== false) stampMeta(v.id, s === "files" ? byteSize(v.bytes) : 0, true); });
+  return r;
+};
+function byteSize(b) { return b ? (b.byteLength || b.length || 0) : 0; }
+/* read-modify-write of one meta record in a single step, so it can't race other saves */
+function stampMeta(id, size, touch) {
+  return DB.run("meta", "readwrite", (o) => {
+    const g = o.get(id);
+    g.onsuccess = () => { const m = g.result; if (!m) return; if (touch) m.modified = Date.now(); if (size) m.size = size; o.put(m); };
+  }).catch(() => false);
+}
+/* files saved before sizes were recorded: look the size up once */
+function fillSizes(metas, redraw) {
+  const missing = metas.filter((m) => !m.size);
+  if (!missing.length) return;
+  Promise.all(missing.map(async (m) => { const f = await DB.get("files", m.id); const n = f && byteSize(f.bytes); if (n) { m.size = n; await stampMeta(m.id, n, false); } return n; }))
+    .then((r) => { if (r.some(Boolean)) redraw(); });
+}

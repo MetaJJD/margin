@@ -355,15 +355,19 @@ async function openSaved(m) {
 }
 async function renderRecent() {
   const list = $("recentList");
-  const metas = (await DB.all("meta")).sort((a, b) => (b.opened || 0) - (a.opened || 0)).slice(0, 5);
+  const metas = sortMetas(await DB.all("meta"), lib.sort);
+  $("fmSort").value = sortKey(lib.sort);
+  fillSizes(metas, renderRecent);
   list.innerHTML = "";
   if (!metas.length) { list.innerHTML = '<p class="panel-empty">No files yet.</p>'; return; }
   for (const m of metas) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "menu-item" + (m.id === state.id ? " current" : ""); b.setAttribute("role", "menuitem");
-    b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg><span><b></b><small></small></span>';
+    b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg><span><b></b><small></small><small></small></span>';
     b.querySelector("b").textContent = m.name;
-    b.querySelector("small").textContent = (m.pages || "?") + (m.pages === 1 ? " page" : " pages") + " · opened " + when(m.opened);
+    const sms = b.querySelectorAll("small");
+    sms[0].textContent = (m.pages || "?") + (m.pages === 1 ? " page" : " pages") + " · " + fmtSize(m.size) + " · Created " + fmtDate(m.added, true);
+    sms[1].textContent = "Modified " + fmtDate(modOf(m));
     b.onclick = () => { hidePop(); openSaved(m); };
     list.appendChild(b);
   }
