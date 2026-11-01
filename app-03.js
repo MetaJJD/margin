@@ -1,21 +1,80 @@
 /* ---------- zoom ---------- */
-function setZoom(z, cx, cy) {
-  z = Math.max(0.5, Math.min(4, z));
-  const old = state.zoom; if (Math.abs(z - old) < 0.001) return;
-  const r = viewer.getBoundingClientRect();
-  const ax = cx == null ? r.width / 2 : cx - r.left, ay = cy == null ? r.height / 2 : cy - r.top;
-  const px = viewer.scrollLeft + ax, py = viewer.scrollTop + ay;
-  state.zoom = z;
-  layout();
-  const ratio = z / old;
-  viewer.scrollLeft = px * ratio - ax;
-  viewer.scrollTop = py * ratio - ay;
+const clampZoom = (z) => Math.max(0.5, Math.min(4, z));
+/* the spot on a page under a screen point, so zooming keeps exactly that spot under your fingers */
+function anchorAt(cx, cy) {
+  let best = null, bd = Infinity;
+  for (const p of state.pages) {
+    if (p.wrap.hidden) continue;
+    const r = p.wrap.getBoundingClientRect();
+    const dx = cx < r.left ? r.left - cx : cx > r.right ? cx - r.right : 0;
+    const dy = cy < r.top ? r.top - cy : cy > r.bottom ? cy - r.bottom : 0;
+    if (dx + dy < bd) { bd = dx + dy; best = { p, x: (cx - r.left) / p.s, y: (cy - r.top) / p.s }; if (bd === 0) break; }
+  }
+  return best;
+}
+function setZoom(z, cx, cy, anchor, force) {
+  z = clampZoom(z);
+  const old = state.zoom;
+  if (Math.abs(z - old) < 0.001 && !force) return;
+  const vr = viewer.getBoundingClientRect();
+  if (cx == null) { cx = vr.left + vr.width / 2; cy = vr.top + vr.height / 2; }
+  const a = anchor || anchorAt(cx, cy);
+  if (Math.abs(z - old) >= 0.001) { state.zoom = z; layout(); }
+  if (a) {
+    const pr = a.p.wrap.getBoundingClientRect();
+    viewer.scrollLeft += pr.left + a.x * a.p.s - cx;
+    viewer.scrollTop += pr.top + a.y * a.p.s - cy;
+  }
   renderToolbar();
   updateVisible();
+  if (zoom.on && zoom.p) zoomMoveTo(zoom.p, zoom.x, zoom.y);
+}
+/* + and - buttons: glide to the new zoom, then sharpen */
+let zoomAnim = null;
+function animateZoom(target) {
+  if (zoomAnim) zoomAnim.done();
+  target = clampZoom(target);
+  if (Math.abs(target - state.zoom) < 0.001) return;
+  const vr = viewer.getBoundingClientRect();
+  const cx = vr.left + vr.width / 2, cy = vr.top + vr.height / 2;
+  const anchor = anchorAt(cx, cy);
+  if (reduceMotion.matches) { setZoom(target, cx, cy, anchor); return; }
+  pagesEl.style.transformOrigin = (viewer.scrollLeft + vr.width / 2) + "px " + (viewer.scrollTop + vr.height / 2) + "px";
+  pagesEl.style.willChange = "transform";
+  pagesEl.style.transition = "transform .2s cubic-bezier(.2, .7, .3, 1)";
+  const r = target / state.zoom;
+  requestAnimationFrame(() => { if (zoomAnim) pagesEl.style.transform = "scale(" + r + ")"; });
+  const done = () => {
+    if (!zoomAnim) return;
+    clearTimeout(zoomAnim.t); zoomAnim = null;
+    pagesEl.style.transition = ""; pagesEl.style.transform = ""; pagesEl.style.willChange = "";
+    setZoom(target, cx, cy, anchor);
+  };
+  zoomAnim = { done, t: setTimeout(done, 220) };
 }
 const ZSTEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4];
-$("zoomIn").onclick = () => setZoom(ZSTEPS.find((z) => z > state.zoom + 0.01) || 4);
-$("zoomOut").onclick = () => setZoom(ZSTEPS.slice().reverse().find((z) => z < state.zoom - 0.01) || 0.5);
+$("zoomIn").onclick = () => animateZoom(ZSTEPS.find((z) => z > state.zoom + 0.01) || 4);
+$("zoomOut").onclick = () => animateZoom(ZSTEPS.slice().reverse().find((z) => z < state.zoom - 0.01) || 0.5);
+/* trackpad pinch (and Ctrl + scroll wheel) on a computer */
+let wheelZ = null;
+viewer.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  if (!wheelZ) {
+    const vr = viewer.getBoundingClientRect();
+    wheelZ = { r: 1, cx: e.clientX, cy: e.clientY, anchor: anchorAt(e.clientX, e.clientY) };
+    pagesEl.style.transformOrigin = (viewer.scrollLeft + e.clientX - vr.left) + "px " + (viewer.scrollTop + e.clientY - vr.top) + "px";
+    pagesEl.style.willChange = "transform";
+  }
+  wheelZ.r = Math.max(0.5 / state.zoom, Math.min(4 / state.zoom, wheelZ.r * Math.exp(-e.deltaY * 0.01)));
+  pagesEl.style.transform = "scale(" + wheelZ.r + ")";
+  clearTimeout(wheelZ.t);
+  wheelZ.t = setTimeout(() => {
+    const w = wheelZ; wheelZ = null;
+    pagesEl.style.transform = ""; pagesEl.style.willChange = "";
+    setZoom(state.zoom * w.r, w.cx, w.cy, w.anchor);
+  }, 160);
+}, { passive: false });
 
 /* pinch to zoom with two fingers */
 let pinch = null;
@@ -24,7 +83,12 @@ viewer.addEventListener("touchstart", (e) => {
   const fingers = Array.from(e.touches).filter((t) => t.touchType !== "stylus");
   if (fingers.length === 2) {
     const [a, b] = fingers;
-    pinch = { d0: tdist(a, b), cx: (a.clientX + b.clientX) / 2, cy: (a.clientY + b.clientY) / 2, r: 1 };
+    if (zoomAnim) zoomAnim.done();
+    const cx = (a.clientX + b.clientX) / 2, cy = (a.clientY + b.clientY) / 2;
+    const vr = viewer.getBoundingClientRect();
+    pinch = { d0: tdist(a, b), cx, cy, mx: cx, my: cy, r: 1, anchor: anchorAt(cx, cy) };
+    pagesEl.style.transformOrigin = (viewer.scrollLeft + cx - vr.left) + "px " + (viewer.scrollTop + cy - vr.top) + "px";
+    pagesEl.style.willChange = "transform";
     cancelActive();
     e.preventDefault();
   } else if (shouldBlock(e)) e.preventDefault();
@@ -32,19 +96,23 @@ viewer.addEventListener("touchstart", (e) => {
 viewer.addEventListener("touchmove", (e) => {
   if (pinch && e.touches.length >= 2) {
     e.preventDefault();
-    const r = tdist(e.touches[0], e.touches[1]) / pinch.d0;
-    pinch.r = Math.max(0.5 / state.zoom, Math.min(4 / state.zoom, r));
-    const vr = viewer.getBoundingClientRect();
-    const ox = viewer.scrollLeft + pinch.cx - vr.left, oy = viewer.scrollTop + pinch.cy - vr.top;
-    pagesEl.style.transformOrigin = ox + "px " + oy + "px";
-    pagesEl.style.transform = "scale(" + pinch.r + ")";
+    const t0 = e.touches[0], t1 = e.touches[1];
+    pinch.r = Math.max(0.5 / state.zoom, Math.min(4 / state.zoom, tdist(t0, t1) / pinch.d0));
+    pinch.mx = (t0.clientX + t1.clientX) / 2; pinch.my = (t0.clientY + t1.clientY) / 2;
+    if (!pinch.raf) pinch.raf = requestAnimationFrame(() => {
+      if (!pinch) return;
+      pinch.raf = 0;
+      pagesEl.style.transform = "translate(" + (pinch.mx - pinch.cx) + "px, " + (pinch.my - pinch.cy) + "px) scale(" + pinch.r + ")";
+    });
   } else if (shouldBlock(e)) e.preventDefault();
 }, { passive: false });
 viewer.addEventListener("touchend", (e) => {
   if (pinch && e.touches.length < 2) {
     const p = pinch; pinch = null;
-    pagesEl.style.transform = "";
-    if (Math.abs(p.r - 1) > 0.02) setZoom(state.zoom * p.r, p.cx, p.cy);
+    if (p.raf) cancelAnimationFrame(p.raf);
+    pagesEl.style.transform = ""; pagesEl.style.willChange = "";
+    const moved = Math.hypot(p.mx - p.cx, p.my - p.cy) > 3;
+    if (Math.abs(p.r - 1) > 0.02 || moved) setZoom(state.zoom * p.r, p.mx, p.my, p.anchor, true);
   }
 });
 function shouldBlock(e) {
