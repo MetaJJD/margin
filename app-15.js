@@ -3,6 +3,8 @@ function setRuler(on) {
   ruler.on = on;
   ruler.el.hidden = !on;
   rulerBtn.setAttribute("aria-pressed", String(on));
+  fsRuler.setAttribute("aria-pressed", String(on));
+  fsRuler.style.background = on ? "var(--chip-on)" : ""; fsRuler.style.color = on ? "var(--accent)" : "";
   if (on) {
     const r = viewer.getBoundingClientRect();
     ruler.L = Math.min(820, Math.max(320, r.width * 0.8));
@@ -37,6 +39,14 @@ rulerBtn.setAttribute("aria-pressed", "false"); rulerBtn.setAttribute("aria-labe
 rulerBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="2.5" y="8" width="19" height="8" rx="1.2"/><path d="M6 8v3M9.5 8v4.5M13 8v3M16.5 8v4.5"/></svg>';
 $("fitBtn").before(rulerBtn);
 rulerBtn.onclick = () => setRuler(!ruler.on);
+/* the same ruler button in the full screen bar, to the right of the lasso */
+const fsRuler = document.createElement("button");
+fsRuler.type = "button"; fsRuler.className = "icon-btn"; fsRuler.id = "fsRuler";
+fsRuler.setAttribute("aria-pressed", "false"); fsRuler.setAttribute("aria-label", "Ruler"); fsRuler.title = "Ruler";
+fsRuler.innerHTML = rulerBtn.innerHTML;
+fsRuler.querySelector("svg").style.fill = "none";
+(document.querySelector('#fsPill [data-fstool="lasso"]') || $("fsFit")).after(fsRuler);
+fsRuler.onclick = () => setRuler(!ruler.on);
 window.addEventListener("resize", () => { if (ruler.on) placeRuler(); });
 
 /* ---------- share with editable notes: real PDF annotations other apps can move or delete ---------- */
