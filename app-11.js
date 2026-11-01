@@ -72,6 +72,98 @@ function toggleThumbs(force) {
 }
 $("thumbsBtn").onclick = () => toggleThumbs();
 $("thumbsClose").onclick = () => toggleThumbs(false);
+/* press and hold a page in the sidebar to pick it up, then drag it to a new place */
+const tdrag = { timer: 0, cand: null, on: false, justDropped: false };
+thumbList.style.webkitTouchCallout = "none"; thumbList.style.webkitUserSelect = "none"; thumbList.style.userSelect = "none";
+thumbList.addEventListener("contextmenu", (e) => { if (tdrag.cand || tdrag.on) e.preventDefault(); });
+thumbList.addEventListener("pointerdown", (e) => {
+  const b = e.target.closest(".thumb");
+  if (!b || e.target.closest(".tb, .tmore") || (e.pointerType === "mouse" && e.button !== 0) || pageBusy || tdrag.on) return;
+  clearTimeout(tdrag.timer);
+  tdrag.cand = { b, id: e.pointerId, x: e.clientX, y: e.clientY };
+  tdrag.timer = setTimeout(startThumbDrag, 420);
+});
+thumbList.addEventListener("pointermove", (e) => {
+  const c = tdrag.cand;
+  if (c && !tdrag.on && e.pointerId === c.id && Math.hypot(e.clientX - c.x, e.clientY - c.y) > 8) { clearTimeout(tdrag.timer); tdrag.cand = null; }
+  if (tdrag.on && e.pointerId === tdrag.id) { e.preventDefault(); moveThumbDrag(e.clientX, e.clientY); }
+});
+thumbList.addEventListener("pointerup", (e) => endThumbDrag(e, false));
+thumbList.addEventListener("pointercancel", (e) => endThumbDrag(e, true));
+thumbList.addEventListener("touchmove", (e) => { if (tdrag.on) e.preventDefault(); }, { passive: false });
+thumbList.addEventListener("click", (e) => { if (tdrag.justDropped) { e.stopPropagation(); e.preventDefault(); } }, true);
+function startThumbDrag() {
+  const c = tdrag.cand;
+  if (!c || !c.b.isConnected) return;
+  const b = c.b, r = b.tc.getBoundingClientRect();
+  Object.assign(tdrag, { on: true, id: c.id, b, n: +b.dataset.n, ox: c.x - r.left, oy: c.y - r.top, before: undefined });
+  try { b.setPointerCapture(c.id); } catch (err) {}
+  b.style.opacity = "0.35";
+  const g = document.createElement("div");
+  g.style.cssText = "position:fixed;z-index:70;pointer-events:none;background:#fff;border-radius:3px;overflow:hidden;transform:scale(1.08) rotate(-2deg);transition:transform .15s;" +
+    "box-shadow:0 0 0 3px var(--accent),0 14px 34px rgba(10,20,40,.35);width:" + r.width + "px;height:" + r.height + "px;left:" + r.left + "px;top:" + r.top + "px;filter:" + getComputedStyle(b.tc).filter + ";";
+  const cv = b.tc.querySelector("canvas");
+  if (cv && cv.width) {
+    const cc = document.createElement("canvas"); cc.width = cv.width; cc.height = cv.height;
+    cc.getContext("2d").drawImage(cv, 0, 0);
+    cc.style.cssText = "display:block;width:100%;height:100%;";
+    g.appendChild(cc);
+  }
+  const num = document.createElement("span");
+  num.textContent = b.dataset.n;
+  num.style.cssText = "position:absolute;left:6px;bottom:6px;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--accent);color:#fff;font:600 12px/22px var(--f-ui);text-align:center;";
+  g.appendChild(num);
+  document.body.appendChild(g);
+  const line = document.createElement("div");
+  line.style.cssText = "position:fixed;z-index:69;pointer-events:none;height:4px;border-radius:2px;background:var(--accent);box-shadow:0 0 0 2px var(--bar);display:none;";
+  document.body.appendChild(line);
+  tdrag.ghost = g; tdrag.line = line;
+  moveThumbDrag(c.x, c.y);
+  const loop = () => {
+    if (!tdrag.on) return;
+    const lr = thumbList.getBoundingClientRect(), y = tdrag.ly;
+    const sp = y < lr.top + 50 ? -Math.ceil((lr.top + 50 - y) / 4) : y > lr.bottom - 50 ? Math.ceil((y - lr.bottom + 50) / 4) : 0;
+    if (sp) { thumbList.scrollTop += sp; moveThumbDrag(tdrag.lx, tdrag.ly); }
+    tdrag.raf = requestAnimationFrame(loop);
+  };
+  tdrag.raf = requestAnimationFrame(loop);
+}
+function moveThumbDrag(x, y) {
+  tdrag.lx = x; tdrag.ly = y;
+  tdrag.ghost.style.left = (x - tdrag.ox) + "px";
+  tdrag.ghost.style.top = (y - tdrag.oy) + "px";
+  const vis = thumbs.els.filter((el) => !el.hidden && el !== tdrag.b);
+  if (!vis.length) { tdrag.before = undefined; tdrag.line.style.display = "none"; return; }
+  let before = null, ref = null;
+  for (const el of vis) { const r = el.tc.getBoundingClientRect(); if (y < r.top + r.height / 2) { before = el; break; } }
+  const lr = thumbList.getBoundingClientRect();
+  if (before) { ref = before.tc.getBoundingClientRect(); tdrag.line.style.top = (ref.top - 9) + "px"; }
+  else { ref = vis[vis.length - 1].tc.getBoundingClientRect(); tdrag.line.style.top = (ref.bottom + 22) + "px"; }
+  tdrag.before = before ? +before.dataset.n : null;
+  tdrag.last = +vis[vis.length - 1].dataset.n;
+  tdrag.line.style.left = (lr.left + 14) + "px";
+  tdrag.line.style.width = Math.max(40, lr.width - 28) + "px";
+  const lineY = parseFloat(tdrag.line.style.top);
+  tdrag.line.style.display = lineY > lr.top - 4 && lineY < lr.bottom + 4 ? "block" : "none";
+}
+function endThumbDrag(e, cancelled) {
+  if (tdrag.cand && !tdrag.on && e.pointerId === tdrag.cand.id) { clearTimeout(tdrag.timer); tdrag.cand = null; return; }
+  if (!tdrag.on || e.pointerId !== tdrag.id) return;
+  tdrag.on = false; tdrag.cand = null;
+  cancelAnimationFrame(tdrag.raf);
+  tdrag.b.style.opacity = "";
+  const cv = tdrag.ghost.querySelector("canvas"); if (cv) cv.width = 0;
+  tdrag.ghost.remove(); tdrag.line.remove();
+  tdrag.justDropped = true; setTimeout(() => { tdrag.justDropped = false; }, 450);
+  if (cancelled || tdrag.before === undefined) return;
+  const n = tdrag.n, N = state.pages.length, order = [];
+  for (let i = 1; i <= N; i++) if (i !== n) order.push(i);
+  const idx = tdrag.before == null ? order.indexOf(tdrag.last) + 1 : order.indexOf(tdrag.before);
+  if (idx < 0) return;
+  order.splice(idx, 0, n);
+  if (order.every((v, i) => v === i + 1)) return;
+  applyPageOrder(order, idx + 1, "Moved page " + n + " to page " + (idx + 1) + ".");
+}
 function buildThumbs() {
   if (thumbs.obs) thumbs.obs.disconnect();
   thumbList.innerHTML = "";
@@ -329,7 +421,7 @@ $("reviewCopy").onclick = async () => {
   const lines = [state.name, ""];
   for (const g of reviewData) {
     lines.push("Page " + g.n);
-    for (const en of g.entries) if (en.kind !== "Handwriting" && en.kind !== "Photo") lines.push("- " + en.kind + ": " + (en.quote ? "\u201c" + en.text + "\u201d" : en.text));
+    for (const en of g.entries) if (en.kind !== "Handwriting" && en.kind !== "Photo") lines.push("- " + en.kind + ": " + (en.quote ? "“" + en.text + "”" : en.text));
     lines.push("");
   }
   const text = lines.join("\n").trim();
