@@ -90,17 +90,91 @@ function translateItem(it, dx, dy) {
   if (it.type === "pen" || it.type === "hl") { for (const q of it.pts) { q[0] = round2(q[0] + dx); q[1] = round2(q[1] + dy); } }
   else { it.x = round2(it.x + dx); it.y = round2(it.y + dy); if (it._b) { it._b.x = it.x; it._b.y = it.y; } }
 }
+/* ---------- snap to align: pause while dragging near another object ---------- */
+const snap = { ctx: null, timer: 0, x: 0, y: 0, guides: [], hideT: 0 };
+function selectionBox(items) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const it of items) { const b = itemBox(it); if (!b) continue; x1 = Math.min(x1, b.x1); y1 = Math.min(y1, b.y1); x2 = Math.max(x2, b.x2); y2 = Math.max(y2, b.y2); }
+  return isFinite(x1) ? { x1, y1, x2, y2 } : null;
+}
+function snapStart(ctx, e) { snap.ctx = ctx; snap.x = e.clientX; snap.y = e.clientY; clearGuides(); armSnap(); }
+function armSnap() { clearTimeout(snap.timer); snap.timer = setTimeout(snapNow, 380); }
+function snapMove(e) {
+  if (!snap.ctx) return;
+  if (Math.hypot(e.clientX - snap.x, e.clientY - snap.y) > 4) {
+    snap.x = e.clientX; snap.y = e.clientY;
+    if (snap.guides.length) clearGuides();
+    armSnap();
+  }
+}
+function snapEnd() {
+  clearTimeout(snap.timer); snap.ctx = null;
+  clearTimeout(snap.hideT); snap.hideT = setTimeout(clearGuides, 700);
+}
+/* nearest edge-to-edge or centre-to-centre alignment with a nearby object */
+function findSnap(box, others, tol, near) {
+  const xs = [box.x1, (box.x1 + box.x2) / 2, box.x2], ys = [box.y1, (box.y1 + box.y2) / 2, box.y2];
+  let bx = null, by = null;
+  for (const o of others) {
+    const gapX = Math.max(0, o.x1 - box.x2, box.x1 - o.x2), gapY = Math.max(0, o.y1 - box.y2, box.y1 - o.y2);
+    if (Math.hypot(gapX, gapY) > near) continue;
+    const oxs = [o.x1, (o.x1 + o.x2) / 2, o.x2], oys = [o.y1, (o.y1 + o.y2) / 2, o.y2];
+    for (let i = 0; i < 3; i++) {
+      const dx = oxs[i] - xs[i], dy = oys[i] - ys[i];
+      if (Math.abs(dx) <= tol && (!bx || Math.abs(dx) < Math.abs(bx.d))) bx = { d: dx, at: oxs[i], o };
+      if (Math.abs(dy) <= tol && (!by || Math.abs(dy) < Math.abs(by.d))) by = { d: dy, at: oys[i], o };
+    }
+  }
+  return { bx, by };
+}
+function snapNow() {
+  const c = snap.ctx;
+  if (!c) return;
+  const box = c.box();
+  if (!box) return;
+  const p = c.p;
+  const others = (state.ann[p.n] || []).filter((it) => !c.exclude.includes(it)).map(itemBox).filter(Boolean);
+  const { bx, by } = findSnap(box, others, 16 / p.s, 150 / p.s);
+  if (!bx && !by) return;
+  const dx = bx ? bx.d : 0, dy = by ? by.d : 0;
+  if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) c.move(dx, dy);
+  const nb = { x1: box.x1 + dx, y1: box.y1 + dy, x2: box.x2 + dx, y2: box.y2 + dy };
+  clearGuides();
+  if (bx) addGuide(p, "v", bx.at, Math.min(nb.y1, bx.o.y1) - 6, Math.max(nb.y2, bx.o.y2) + 6);
+  if (by) addGuide(p, "h", by.at, Math.min(nb.x1, by.o.x1) - 6, Math.max(nb.x2, by.o.x2) + 6);
+}
+function addGuide(p, dir, at, a, b) {
+  const g = document.createElement("div");
+  g.className = "snapguide " + dir;
+  if (dir === "v") { g.style.left = (at / p.w * 100) + "%"; g.style.top = (a / p.h * 100) + "%"; g.style.height = ((b - a) / p.h * 100) + "%"; }
+  else { g.style.top = (at / p.h * 100) + "%"; g.style.left = (a / p.w * 100) + "%"; g.style.width = ((b - a) / p.w * 100) + "%"; }
+  p.wrap.appendChild(g);
+  snap.guides.push(g);
+}
+function clearGuides() { snap.guides.forEach((g) => g.remove()); snap.guides = []; }
+
 let lDrag = null;
 lassoEl.addEventListener("pointerdown", (e) => {
   if (!lassoSel || e.target.closest("button")) return;
   e.preventDefault(); e.stopPropagation();
   try { lassoEl.setPointerCapture(e.pointerId); } catch (err) {}
-  lDrag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: 0, ay: 0 };
+  lDrag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: 0, ay: 0, snapX: 0, snapY: 0 };
+  snapStart({
+    p: lassoSel.p, exclude: lassoSel.items,
+    box: () => selectionBox(lassoSel.items),
+    move: (dx, dy) => {
+      if (!lDrag || !lassoSel) return;
+      lassoSel.items.forEach((it) => translateItem(it, dx, dy));
+      lDrag.snapX += dx; lDrag.snapY += dy;
+      updateLassoSel(); drawInk(lassoSel.p);
+    }
+  }, e);
 });
 lassoEl.addEventListener("pointermove", (e) => {
   if (!lDrag || e.pointerId !== lDrag.id || !lassoSel) return;
   e.preventDefault(); e.stopPropagation();
   const p = lassoSel.p;
+  snapMove(e);
   const tx = (e.clientX - lDrag.sx) / p.s, ty = (e.clientY - lDrag.sy) / p.s;
   const dx = tx - lDrag.ax, dy = ty - lDrag.ay;
   lDrag.ax = tx; lDrag.ay = ty;
@@ -112,9 +186,11 @@ function lDragEnd(e) {
   if (!lDrag || e.pointerId !== lDrag.id) return;
   e.stopPropagation();
   const d = lDrag; lDrag = null;
+  snapEnd();
   if (!lassoSel) return;
   const p = lassoSel.p;
-  if (Math.abs(d.ax) > 0.01 || Math.abs(d.ay) > 0.01) commit({ t: "move", n: p.n, items: lassoSel.items.slice(), dx: d.ax, dy: d.ay });
+  const mx = d.ax + d.snapX, my = d.ay + d.snapY;
+  if (Math.abs(mx) > 0.01 || Math.abs(my) > 0.01) commit({ t: "move", n: p.n, items: lassoSel.items.slice(), dx: mx, dy: my });
   drawInk(p);
 }
 lassoEl.addEventListener("pointerup", lDragEnd);
