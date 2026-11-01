@@ -225,7 +225,7 @@ function setViewMode(mode) {
 }
 /* ---------- page layout per file: One page unless this file was last read another way ---------- */
 function fileViews() { try { return JSON.parse(localStorage.getItem("margin-views") || "{}") || {}; } catch (e) { return {}; } }
-function fileView(id) { const v = fileViews()[id]; return v === "vertical" || v === "horizontal" || v === "single" ? v : "single"; }
+function fileView(id) { const v = fileViews()[id]; return v === "vertical" || v === "horizontal" || v === "single" || v === "spread" ? v : "single"; }
 function saveFileView(id, mode) {
   if (!id) return;
   const all = fileViews(); all[id] = mode;

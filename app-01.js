@@ -268,6 +268,7 @@ function renderToolbar() {
   $("zoomVal").textContent = Math.round(state.zoom * 100) + "%";
   $("undoBtn").disabled = $("zUndo").disabled = $("fsUndo").disabled = !state.undo.length;
   $("redoBtn").disabled = $("zRedo").disabled = $("fsRedo").disabled = !state.redo.length;
+  renderPenPresets();
 }
 document.querySelectorAll(".tool[data-tool]").forEach((b) => b.addEventListener("click", () => { if (textEdit) closeTextEdit(); if (lassoSel && b.dataset.tool !== "lasso") clearLassoSel(); state.tool = b.dataset.tool; savePrefs(); renderToolbar(); }));
 $("pencilBtn").onclick = () => {
