@@ -122,6 +122,7 @@
 <div class="pop" id="sharePop" hidden role="menu" aria-label="Share">
   <button class="menu-item" id="shareNotes" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 20l4.2-1L19 8.2 15.8 5 5 15.8z"/><path d="M13.8 7l3.2 3.2"/></svg><span><b>With my notes</b><small id="shareNotesHint">Your marks built into the pages</small></span></button>
   <button class="menu-item" id="shareOrig" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg><span><b>Original PDF</b><small>The clean file, without your notes</small></span></button>
+  <button class="menu-item" id="sharePrint" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/></svg><span><b>Print</b><small id="sharePrintHint">Any AirPrint printer on your Wi-Fi</small></span></button>
   <p class="pop-hint">Either way, your notes stay here in Margin.</p>
 </div>
 
@@ -182,6 +183,8 @@
   <button class="icon-btn" id="fsUndo" type="button" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
   <button class="icon-btn" id="fsRedo" type="button" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
   <span class="fspage" id="fsPage"></span>
+  <button class="icon-btn" id="fsFit" type="button" aria-label="Fit page width" title="Fit page width"><svg viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg></button>
+  <button class="icon-btn" id="fsZoom" type="button" aria-pressed="false" aria-label="Zoom window" title="Zoom window: write large, lands small"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="9" height="7" rx="1"/><path d="M12 11l3 3"/><rect x="11" y="13" width="10" height="7" rx="1"/></svg></button>
   <button class="btn" id="fsExit" type="button"><svg viewBox="0 0 24 24"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>Exit full screen</button>
 </div>
 
@@ -196,6 +199,24 @@
   <button class="menu-item" id="poUp" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg><span><b>Move earlier</b></span></button>
   <button class="menu-item" id="poDown" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg><span><b>Move later</b></span></button>
   <button class="menu-item danger" id="poDel" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span><b>Delete page</b></span></button>
+</div>
+
+<div class="grid-view" id="gridView" hidden role="dialog" aria-label="Page overview">
+  <div class="gv-bar">
+    <button class="btn" id="gvDone" type="button">Done</button>
+    <span class="gv-title" id="gvTitle"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="gvSelect" type="button">Select</button>
+  </div>
+  <div class="gv-actions" id="gvActions" hidden>
+    <button class="btn" id="gvAll" type="button">Select all</button>
+    <button class="btn" id="gvInsert" type="button">Insert page</button>
+    <button class="btn" id="gvCopy" type="button">Copy</button>
+    <button class="btn" id="gvPaste" type="button">Paste</button>
+    <button class="btn" id="gvDup" type="button">Duplicate</button>
+    <button class="btn danger" id="gvDelete" type="button">Delete</button>
+  </div>
+  <div class="gv-grid" id="gvGrid"></div>
 </div>
 
 <div class="toast" id="toast" hidden></div>
