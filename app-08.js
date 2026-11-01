@@ -184,6 +184,27 @@ function when(t) {
 }
 function openLibrary() { lib.q = ""; $("libSearch").value = ""; lib.actionsFor = null; lib.newFolder = false; lib.renaming = false; $("libSheet").hidden = false; renderLibrary(); }
 function closeLibrary() { $("libSheet").hidden = true; }
+/* favorite the open file from the Files menu */
+const favItem = document.createElement("button");
+favItem.type = "button"; favItem.className = "menu-item"; favItem.id = "fmFav"; favItem.setAttribute("role", "menuitem");
+favItem.innerHTML = STAR_SVG + '<span><b id="fmFavLabel">Add to favorites</b><small>Keep this file under Favorites on Home</small></span>';
+$("fmNew").after(favItem);
+async function refreshFavItem() {
+  const m = state.id ? await DB.get("meta", state.id) : null;
+  const on = !!(m && m.fav), svg = favItem.querySelector("svg");
+  $("fmFavLabel").textContent = on ? "Remove from favorites" : "Add to favorites";
+  favItem.setAttribute("aria-pressed", String(on));
+  svg.style.fill = on ? "#f2a20c" : ""; svg.style.stroke = on ? "#f2a20c" : "";
+}
+favItem.onclick = async () => {
+  const m = state.id ? await DB.get("meta", state.id) : null;
+  if (!m) { toast("Open a file first."); return; }
+  if (m.fav) delete m.fav; else m.fav = true;
+  await DB.put("meta", m);
+  toast(m.fav ? "Added to favorites. Find it on Home." : "Removed from favorites.");
+  refreshFavItem();
+};
+$("filesBtn").addEventListener("click", () => { refreshFavItem(); });
 $("libClose").onclick = closeLibrary;
 $("libSheet").addEventListener("pointerdown", (e) => { if (e.target === $("libSheet")) closeLibrary(); });
 const drop = $("drop");

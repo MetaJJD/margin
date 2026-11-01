@@ -100,6 +100,242 @@ $("filesPop").addEventListener("click", (e) => { if (e.target.closest(".menu-ite
 $("fmOpen").onclick = () => openLibrary();
 $("fmNew").onclick = () => openPageSheet("new");
 
+/* ---------- home button ---------- */
+$("homeBtn").onclick = () => { hidePop(); openLibrary(); };
+
+/* ---------- print over Wi-Fi (AirPrint, through the share sheet) ---------- */
+let printPrep = null;
+function prepKey() {
+  return [state.id, state.undo.length, state.redo.length, state.bytes ? state.bytes.length : 0, countAnn(state.ann), JSON.stringify(state.pageNumbers || 0)].join("|");
+}
+function setPrintReady(ready) {
+  $("sharePrint").disabled = !ready;
+  $("sharePrintHint").textContent = ready ? "Any AirPrint printer on your Wi-Fi" : "Getting the pages ready...";
+}
+function preparePrint() {
+  if (!state.bytes || !window.PDFLib) return;
+  const key = prepKey();
+  if (printPrep && printPrep.key === key) { setPrintReady(printPrep.ready); return; }
+  const p = { key, ready: false, bytes: null, failed: false };
+  printPrep = p;
+  setPrintReady(false);
+  buildPdf().then((b) => { if (printPrep !== p) return; p.bytes = b; p.ready = true; setPrintReady(true); })
+    .catch(() => { if (printPrep !== p) return; p.failed = true; p.ready = true; setPrintReady(true); });
+}
+$("shareBtn").addEventListener("click", () => setTimeout(preparePrint, 0));
+$("sharePrint").onclick = async () => {
+  const p = printPrep;
+  if (!p || !p.ready) return;
+  hidePop();
+  if (p.failed) { toast("This PDF couldn't be prepared for printing. It may be locked.", 4500); return; }
+  const name = safeName() + ".pdf";
+  const blob = new Blob([p.bytes], { type: "application/pdf" });
+  try {
+    const file = new File([blob], name, { type: "application/pdf" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      toast("Tap Print, then choose your printer.", 5000);
+      await navigator.share({ files: [file], title: name });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    if (e && e.name === "NotAllowedError") { toast("Tap Share, then Print once more.", 4000); return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+  if (w) { setTimeout(() => URL.revokeObjectURL(url), 120000); toast("Use Print in the new tab.", 4000); return; }
+  URL.revokeObjectURL(url);
+  await deliver(blob, name, "application/pdf", "Saved. Open it in the Files app, tap Share, then Print.");
+};
+
+/* ---------- one-tap fit: page width, then whole page (height) ---------- */
+const FIT_ICON = {
+  w: '<svg viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg>',
+  h: '<svg viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>'
+};
+let lastFit = "h";
+function fitZoomFor(mode, p) {
+  const f = p.s / state.zoom;
+  const z = mode === "w" ? (viewer.clientWidth - padsOf().x) / (p.w * f) : (viewer.clientHeight - 32) / (p.h * f);
+  return clampZoom(z);
+}
+function showFitButtons() {
+  const next = lastFit === "w" ? "h" : "w";
+  const label = next === "w" ? "Fit page width" : "Fit whole page (height)";
+  for (const id of ["fitBtn", "fsFit"]) { const b = $(id); b.innerHTML = FIT_ICON[next]; b.setAttribute("aria-label", label); b.title = label; }
+}
+function autoFit() {
+  const p = state.pages[(state.curPage || 1) - 1];
+  if (!p) return;
+  const mode = lastFit === "w" ? "h" : "w";
+  const z = fitZoomFor(mode, p);
+  setZoom(z, null, null, { p, x: p.w / 2, y: mode === "h" ? p.h / 2 : (viewer.clientHeight / 2 - p.wrap.getBoundingClientRect().top + viewer.getBoundingClientRect().top) / p.s }, true);
+  lastFit = mode;
+  settleFit({ z, fit: mode }, p);
+  showFitButtons();
+}
+$("fitBtn").onclick = autoFit;
+$("fsFit").onclick = autoFit;
+showFitButtons();
+
+/* ---------- page overview: many pages at once; select, insert, copy, paste, duplicate, delete ---------- */
+const gv = { open: false, selecting: false, sel: new Set(), els: [], bytes: null, obs: null, queue: Promise.resolve(), timer: 0 };
+let pageClip = null;
+function openGrid() {
+  if (!state.pages.length) return;
+  hidePop();
+  gv.open = true; gv.selecting = false; gv.sel.clear();
+  $("gridView").hidden = false;
+  buildGrid();
+  clearInterval(gv.timer);
+  gv.timer = setInterval(() => { if (gv.open && gv.bytes !== state.bytes) { gv.sel.clear(); buildGrid(); } }, 400);
+}
+function closeGrid() {
+  gv.open = false;
+  clearInterval(gv.timer);
+  $("gridView").hidden = true;
+  if (gv.obs) gv.obs.disconnect();
+  $("gvGrid").innerHTML = ""; gv.els = [];
+}
+function buildGrid() {
+  const grid = $("gvGrid"), doc = state.id;
+  if (gv.obs) gv.obs.disconnect();
+  grid.innerHTML = ""; gv.els = []; gv.bytes = state.bytes;
+  gv.obs = new IntersectionObserver((ents) => {
+    for (const en of ents) if (en.isIntersecting) queueGridThumb(+en.target.dataset.n, doc);
+  }, { root: grid, rootMargin: "300px 0px" });
+  for (const p of state.pages) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "gv-cell" + (p.n === state.curPage ? " cur" : ""); b.dataset.n = String(p.n);
+    b.setAttribute("aria-label", "Page " + p.n);
+    const pg = document.createElement("span"); pg.className = "gv-page"; pg.style.aspectRatio = p.w + " / " + p.h;
+    const ck = document.createElement("span"); ck.className = "gv-check"; ck.setAttribute("aria-hidden", "true");
+    const num = document.createElement("span"); num.className = "gv-num"; num.textContent = p.n;
+    pg.appendChild(ck); b.append(pg, num);
+    b.onclick = () => onGridTap(p.n);
+    grid.appendChild(b); gv.els.push(b); gv.obs.observe(b);
+  }
+  renderGridBar();
+  const cur = gv.els[(state.curPage || 1) - 1];
+  if (cur) cur.scrollIntoView({ block: "center" });
+}
+function queueGridThumb(n, doc) {
+  const el = gv.els[n - 1];
+  if (!el || el.done) return;
+  el.done = true;
+  gv.queue = gv.queue.then(() => (gv.open && doc === state.id ? renderGridThumb(n) : null)).catch(() => {});
+}
+async function renderGridThumb(n) {
+  const p = state.pages[n - 1], el = gv.els[n - 1];
+  if (!p || !el) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const k = (200 * dpr) / p.w;
+  const vp = p.page.getViewport({ scale: k });
+  const c = document.createElement("canvas");
+  c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, c.width, c.height);
+  await p.page.render({ canvasContext: ctx, viewport: vp }).promise;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  drawLayer(ctx, state.ann[n] || []);
+  drawPageNum(ctx, p);
+  el.querySelector(".gv-page").prepend(c);
+}
+function onGridTap(n) {
+  if (!gv.selecting) { closeGrid(); goToPage(n, null, true); return; }
+  if (gv.sel.has(n)) gv.sel.delete(n); else gv.sel.add(n);
+  renderGridBar();
+}
+function renderGridBar() {
+  const N = state.pages.length, k = gv.sel.size;
+  $("gridView").classList.toggle("selecting", gv.selecting);
+  $("gvTitle").textContent = gv.selecting
+    ? (k ? k + (k === 1 ? " page selected" : " pages selected") : "Tap pages to select them")
+    : N + (N === 1 ? " page" : " pages");
+  $("gvSelect").textContent = gv.selecting ? "Cancel" : "Select";
+  $("gvActions").hidden = !gv.selecting;
+  $("gvAll").textContent = k === N ? "Deselect all" : "Select all";
+  for (const id of ["gvCopy", "gvDup", "gvDelete"]) $(id).disabled = !k;
+  $("gvPaste").disabled = !pageClip;
+  $("gvPaste").textContent = pageClip ? "Paste " + pageClip.pages.length : "Paste";
+  gv.els.forEach((el, i) => el.setAttribute("aria-selected", String(gv.selecting && gv.sel.has(i + 1))));
+}
+const selList = () => Array.from(gv.sel).sort((a, b) => a - b);
+$("gridBtn").onclick = openGrid;
+$("gvDone").onclick = closeGrid;
+$("gvSelect").onclick = () => { gv.selecting = !gv.selecting; gv.sel.clear(); renderGridBar(); };
+$("gvAll").onclick = () => {
+  const N = state.pages.length;
+  if (gv.sel.size === N) gv.sel.clear(); else for (let i = 1; i <= N; i++) gv.sel.add(i);
+  renderGridBar();
+};
+$("gvInsert").onclick = () => { const s = selList(); openPageSheet("add", s.length ? s[s.length - 1] : state.pages.length, "after"); };
+$("gvCopy").onclick = () => {
+  const s = selList();
+  if (!s.length) return;
+  pageClip = { bytes: state.bytes, pages: s, anns: s.map((n) => stripAnn({ x: state.ann[n] || [] }).x) };
+  toast("Copied " + s.length + (s.length === 1 ? " page" : " pages") + ". Paste goes after the last selected page, or at the end. It works in other files too.", 4500);
+  renderGridBar();
+};
+$("gvPaste").onclick = () => {
+  if (!pageClip) return;
+  const s = selList();
+  pastePages(pageClip, s.length ? s[s.length - 1] : state.pages.length);
+};
+$("gvDup").onclick = () => {
+  const s = selList();
+  if (!s.length) return;
+  const last = s[s.length - 1], o = [];
+  for (let n = 1; n <= state.pages.length; n++) { o.push(n); if (n === last) o.push(...s); }
+  applyPageOrder(o, last + 1, "Duplicated " + s.length + (s.length === 1 ? " page." : " pages."));
+};
+$("gvDelete").onclick = () => {
+  const s = selList(), b = $("gvDelete");
+  if (!s.length) return;
+  if (s.length >= state.pages.length) { toast("A PDF needs at least one page. Leave one page unselected."); return; }
+  if (!b.classList.contains("armed")) {
+    b.classList.add("armed"); b.textContent = "Tap again to delete " + s.length;
+    setTimeout(() => { b.classList.remove("armed"); b.textContent = "Delete"; }, 3000);
+    return;
+  }
+  b.classList.remove("armed"); b.textContent = "Delete";
+  const o = state.pages.map((p) => p.n).filter((n) => !gv.sel.has(n));
+  applyPageOrder(o, Math.min(s[0], o.length), "Deleted " + s.length + (s.length === 1 ? " page." : " pages."));
+};
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && gv.open) closeGrid(); });
+async function pastePages(clip, after) {
+  if (pageBusy || !state.bytes) return;
+  pageBusy = true;
+  toast("Pasting...", 20000);
+  try {
+    if (textEdit) closeTextEdit();
+    clearLassoSel();
+    const doc = await PDFLib.PDFDocument.load(state.bytes, { ignoreEncryption: true });
+    const src = await PDFLib.PDFDocument.load(clip.bytes, { ignoreEncryption: true });
+    const copied = await doc.copyPages(src, clip.pages.map((n) => n - 1));
+    copied.forEach((pg, i) => doc.insertPage(after + i, pg));
+    const bytes = await doc.save();
+    const k = copied.length, shift = (n) => (n > after ? n + k : n);
+    const ann = {};
+    for (const key in state.ann) ann[shift(+key)] = state.ann[key];
+    clip.anns.forEach((items, i) => { if (items && items.length) ann[after + 1 + i] = JSON.parse(JSON.stringify(items)); });
+    const undo = state.undo, redo = state.redo, zoomLvl = state.zoom, id = state.id, name = state.name;
+    undo.concat(redo).forEach((op) => { op.n = shift(op.n); });
+    clearTimeout(saveTimer);
+    const bookmarks = (state.bookmarks || []).map((b) => Object.assign({}, b, { n: shift(b.n) }));
+    await DB.put("files", { id, bytes });
+    await DB.put("ann", { id, ann: stripAnn(ann), bookmarks, pageNumbers: state.pageNumbers || null });
+    delete tabs.mem[id];
+    if (!(await openDoc(id, name, bytes, null, ann))) return;
+    state.undo = undo; state.redo = redo;
+    if (zoomLvl !== 1) { state.zoom = zoomLvl; layout(); }
+    renderToolbar();
+    toast("Pasted " + k + (k === 1 ? " page" : " pages") + " after page " + after + ".", 3000);
+  } catch (e) {
+    toast("Couldn't paste those pages. One of the PDFs may be locked.", 4500);
+  } finally { pageBusy = false; }
+}
+
 /* ---------- sample document ---------- */
 async function makeSample() {
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
