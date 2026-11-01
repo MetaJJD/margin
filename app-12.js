@@ -45,7 +45,7 @@ function renderPnForm() {
   $("pnFmt").value = pn.fmt; $("pnStart").value = pn.start; $("pnSkip").checked = !!pn.skip;
   const a = pnLabel(Math.min(2, state.pages.length || 1));
   $("pnPreview").textContent = pn.on
-    ? "Looks like \u201c" + (pnLabel(state.curPage || 1) || a || "") + "\u201d on this page. Numbers appear on screen and in the PDF you share."
+    ? "Looks like “" + (pnLabel(state.curPage || 1) || a || "") + "” on this page. Numbers appear on screen and in the PDF you share."
     : "Turn on Show to number every page automatically, including pages you add later.";
 }
 function pnUpdate(patch) {
@@ -213,9 +213,31 @@ function tabsAfterOpen(id, name, switching) {
   saveTabs();
   renderTabs();
 }
+/* the file-name tabs under the toolbar can be hidden (button at the right of the strip, or View menu) */
+let tabsHidden = false;
+try { tabsHidden = localStorage.getItem("margin-tabs-hidden") === "1"; } catch (e) {}
+const tabHide = document.createElement("button");
+tabHide.type = "button"; tabHide.className = "tab-add"; tabHide.style.marginLeft = "auto";
+tabHide.setAttribute("aria-label", "Hide file tabs"); tabHide.title = "Hide file tabs";
+tabHide.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
+$("tabStrip").appendChild(tabHide);
+const tabsRow = document.createElement("button");
+tabsRow.type = "button"; tabsRow.className = "setting-row"; tabsRow.id = "tabsRowBtn";
+tabsRow.innerHTML = '<span><b>File tabs</b><small>Show open files as tabs under the toolbar.</small></span><span class="toggle"><span class="knob"></span></span>';
+$("pencilBtn").previousElementSibling.before(tabsRow);
+function setTabsHidden(h) {
+  tabsHidden = h;
+  try { localStorage.setItem("margin-tabs-hidden", h ? "1" : "0"); } catch (e) {}
+  renderTabs();
+  relayoutKeep();
+  if (h) toast("File tabs hidden. Turn them back on in View.", 3500);
+}
+tabHide.onclick = () => setTabsHidden(true);
+tabsRow.onclick = () => setTabsHidden(!tabsHidden);
 function renderTabs() {
   const strip = $("tabStrip"), box = $("tabs");
-  const show = tabs.list.length > 0;
+  tabsRow.setAttribute("aria-pressed", String(!tabsHidden));
+  const show = tabs.list.length > 0 && !tabsHidden;
   strip.hidden = !show;
   document.body.classList.toggle("has-tabs", show);
   box.innerHTML = "";
