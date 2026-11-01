@@ -1,0 +1,201 @@
+<aside class="panel" id="panel" hidden aria-label="Search, favorites and review">
+  <div class="panel-head">
+    <div class="seg" id="panelTabs" role="tablist">
+      <button type="button" data-v="search" aria-pressed="true">Search</button>
+      <button type="button" data-v="bookmarks" aria-pressed="false">Favorites</button>
+      <button type="button" data-v="review" aria-pressed="false">Review</button>
+    </div>
+    <button class="icon-btn" id="panelClose" type="button" aria-label="Close panel"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="panel-body" id="searchTab">
+    <form class="search-row" id="searchForm">
+      <input class="input" id="searchInput" type="search" placeholder="Search this PDF" autocomplete="off" enterkeyhint="search">
+      <button class="icon-btn" id="prevHit" type="button" aria-label="Previous result"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+      <button class="icon-btn" id="nextHit" type="button" aria-label="Next result"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    </form>
+    <div class="search-meta" id="searchMeta" aria-live="polite"></div>
+    <ul class="list" id="resultList"></ul>
+  </div>
+  <div class="panel-body" id="bmTab" hidden>
+    <ul class="list" id="bmList"></ul>
+  </div>
+  <div class="panel-body" id="reviewTab" hidden>
+    <div class="review-head">
+      <span class="search-meta" id="reviewMeta"></span>
+      <button class="btn" id="reviewCopy" type="button"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="1.5"/><path d="M16 8V5a1.5 1.5 0 0 0-1.5-1.5h-9A1.5 1.5 0 0 0 4 5v11a1.5 1.5 0 0 0 1.5 1.5H8"/></svg>Copy all</button>
+    </div>
+    <ul class="list" id="reviewList"></ul>
+  </div>
+</aside>
+
+<div class="scrim" id="gotoSheet" hidden>
+  <div class="sheet small-sheet" role="dialog" aria-modal="true" aria-labelledby="gotoTitle">
+    <header><h2 id="gotoTitle">Go to page</h2></header>
+    <form class="body" id="gotoForm">
+      <div class="goto-row">
+        <input class="input" id="gotoInput" type="number" inputmode="numeric" min="1" step="1" aria-label="Page number">
+        <span id="gotoOf">of 1</span>
+      </div>
+      <div class="actions">
+        <span class="spacer"></span>
+        <button class="btn" id="gotoCancel" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Go</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="zwin" id="zWin" hidden role="region" aria-label="Zoom window">
+  <div class="zhead" id="zHead">
+    <span class="zgrab" aria-hidden="true"></span>
+    <span class="zlabel" id="zLabel">Zoom</span>
+    <span class="spacer"></span>
+    <button class="icon-btn" id="zUndo" type="button" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="icon-btn" id="zRedo" type="button" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+    <span class="zsep"></span>
+    <button class="icon-btn" id="zLeft" type="button" aria-label="Move box left" title="Move left"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <button class="icon-btn" id="zRight" type="button" aria-label="Move box right" title="Move right"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    <button class="btn" id="zNewLine" type="button" title="Next line"><svg viewBox="0 0 24 24"><path d="M19 5v6a3 3 0 0 1-3 3H6"/><path d="M10 10l-4 4 4 4"/></svg>New line</button>
+    <button class="icon-btn" id="zClose" type="button" aria-label="Close zoom window"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="zbody" id="zBody">
+    <canvas id="zPdf"></canvas>
+    <canvas id="zInk" class="ink"></canvas>
+    <div class="zresize" id="zResize" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="pop" id="viewPop" hidden role="dialog" aria-label="View">
+  <div class="pop-label">Page layout</div>
+  <div class="views" id="viewOpts" role="group" aria-label="Page layout">
+    <button class="tpl" type="button" data-v="vertical" aria-pressed="true"><i class="vmini v"><b></b><b></b><b></b></i>Scroll down</button>
+    <button class="tpl" type="button" data-v="horizontal" aria-pressed="false"><i class="vmini h"><b></b><b></b><b></b></i>Sideways</button>
+    <button class="tpl" type="button" data-v="single" aria-pressed="false"><i class="vmini s"><b></b></i>One page</button>
+  </div>
+  <div class="pop-label">Zoom</div>
+  <div class="zoomrow">
+    <button class="icon-btn" id="zoomOut" type="button" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+    <span class="zoomval-text" id="zoomVal">100%</span>
+    <button class="icon-btn" id="zoomIn" type="button" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button>
+    <button class="btn" id="zoomFit" type="button">Fit</button>
+  </div>
+  <p class="pop-hint">Pinch with two fingers to zoom, too.</p>
+  <div class="pop-label">Page colour</div>
+  <div class="seg readmode" id="readMode" role="group" aria-label="Page colour">
+    <button type="button" data-v="normal" aria-pressed="true"><i class="rm-dot rm-normal"></i>Normal</button>
+    <button type="button" data-v="sepia" aria-pressed="false"><i class="rm-dot rm-sepia"></i>Sepia</button>
+    <button type="button" data-v="night" aria-pressed="false"><i class="rm-dot rm-night"></i>Night</button>
+  </div>
+  <div class="pop-label">Apple Pencil</div>
+  <button class="setting-row" id="pencilBtn" type="button" aria-pressed="true">
+    <span><b>Pencil only</b><small id="pencilHint">Apple Pencil writes. Your finger scrolls, swipes and selects.</small></span>
+    <span class="toggle"><span class="knob"></span></span>
+  </button>
+</div>
+
+<div class="pop" id="filesPop" hidden role="menu" aria-label="Files">
+  <button class="menu-item" id="fmOpen" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg><span><b>Open a file</b><small>PDF or PowerPoint, from Files or iCloud</small></span></button>
+  <button class="menu-item" id="fmNew" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14h6"/></svg><span><b>New PDF</b><small>Blank or lined pages, A4 or any size</small></span></button>
+  <div class="pop-label fm-label">Recent</div>
+  <div class="recent-list" id="recentList"></div>
+  <button class="btn" id="recentAll" type="button">All files…</button>
+  <div class="fm-row">
+    <button class="btn" id="fmBackup" type="button"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 10l5 5 5-5M5 21h14"/></svg>Back up</button>
+    <button class="btn" id="fmRestore" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 21h14"/></svg>Restore</button>
+  </div>
+</div>
+
+<div class="pop" id="pagePop" hidden role="menu" aria-label="Page">
+  <form class="goto-inline" id="pgForm">
+    <label for="pgInput">Go to page</label>
+    <input class="input" id="pgInput" type="number" inputmode="numeric" min="1" step="1">
+    <span id="pgOf">of 1</span>
+    <button class="btn primary" type="submit">Go</button>
+  </form>
+  <button class="menu-item" id="bmBtn" type="button" role="menuitem" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></svg><span><b id="bmLabel">Add to favorites</b><small>Find it fast in Search and the Pages sidebar</small></span></button>
+  <button class="menu-item" id="addPageBtn" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14h6"/></svg><span><b>Add a page</b><small>Blank or lined, after this one or at the end</small></span></button>
+  <button class="menu-item" id="pmDup" type="button" role="menuitem"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="1.5"/><path d="M16 8V5a1.5 1.5 0 0 0-1.5-1.5h-9A1.5 1.5 0 0 0 4 5v11a1.5 1.5 0 0 0 1.5 1.5H8"/></svg><span><b>Duplicate this page</b><small>A copy with all its notes, right after it</small></span></button>
+  <button class="menu-item danger" id="pmDel" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span><b>Delete this page</b><small>Removes the page and its notes</small></span></button>
+  <button class="menu-item" id="insPageNum" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M10 7h4M11 16.5l1.5-1.5v4"/></svg><span><b>Page numbers</b><small>Number every page automatically</small></span></button>
+</div>
+
+<div class="pop" id="sharePop" hidden role="menu" aria-label="Share">
+  <button class="menu-item" id="shareNotes" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 20l4.2-1L19 8.2 15.8 5 5 15.8z"/><path d="M13.8 7l3.2 3.2"/></svg><span><b>With my notes</b><small id="shareNotesHint">Your marks built into the pages</small></span></button>
+  <button class="menu-item" id="shareOrig" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg><span><b>Original PDF</b><small>The clean file, without your notes</small></span></button>
+  <p class="pop-hint">Either way, your notes stay here in Margin.</p>
+</div>
+
+<div class="scrim" id="pnSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pnTitle">
+    <header>
+      <h2 id="pnTitle">Page numbers</h2>
+      <button class="icon-btn" id="pnClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <form class="body form" id="pnForm">
+      <div class="field">
+        <span>Page numbers</span>
+        <div class="seg" id="pnOn" role="group" aria-label="Page numbers on or off">
+          <button type="button" data-v="on" aria-pressed="false">Show</button>
+          <button type="button" data-v="off" aria-pressed="true">Hide</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>Position</span>
+        <div class="seg" id="pnV" role="group" aria-label="Top or bottom">
+          <button type="button" data-v="top" aria-pressed="true">Top (header)</button>
+          <button type="button" data-v="bottom" aria-pressed="false">Bottom (footer)</button>
+        </div>
+        <div class="seg" id="pnH" role="group" aria-label="Left, centre or right">
+          <button type="button" data-v="left" aria-pressed="false">Left</button>
+          <button type="button" data-v="center" aria-pressed="false">Centre</button>
+          <button type="button" data-v="right" aria-pressed="true">Right</button>
+        </div>
+      </div>
+      <label class="field"><span>Style</span>
+        <select class="select" id="pnFmt">
+          <option value="n">3</option>
+          <option value="page">Page 3</option>
+          <option value="of">3 / 12</option>
+          <option value="pageof">Page 3 of 12</option>
+          <option value="dash">– 3 –</option>
+        </select>
+      </label>
+      <div class="two">
+        <label class="field"><span>Start counting at</span><input class="input" id="pnStart" type="number" inputmode="numeric" min="0" max="9999" step="1" value="1"></label>
+        <div class="field"><span>Size</span>
+          <div class="seg" id="pnSize" role="group" aria-label="Number size">
+            <button type="button" data-v="8" aria-pressed="false">S</button>
+            <button type="button" data-v="10" aria-pressed="true">M</button>
+            <button type="button" data-v="13" aria-pressed="false">L</button>
+          </div>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="pnSkip"> Don't number the first page (cover)</label>
+      <p class="fine" id="pnPreview"></p>
+      <div class="actions"><span class="spacer"></span><button class="btn primary" type="submit">Done</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="fspill" id="fsPill" hidden>
+  <span class="fsgrip" id="fsGrip" title="Drag to move" aria-hidden="true"></span>
+  <button class="icon-btn" id="fsUndo" type="button" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+  <button class="icon-btn" id="fsRedo" type="button" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+  <span class="fspage" id="fsPage"></span>
+  <button class="btn" id="fsExit" type="button"><svg viewBox="0 0 24 24"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>Exit full screen</button>
+</div>
+
+<div class="qpal" id="quickPal" hidden role="dialog" aria-label="Quick tools"></div>
+
+<input type="color" id="colorInput" class="color-input" tabindex="-1" aria-hidden="true">
+<input type="file" id="backupInput" accept=".json,application/json" hidden>
+<div class="pop" id="pageOpsPop" hidden role="menu" aria-label="Page actions">
+  <div class="pop-label" id="poTitle">Page</div>
+  <button class="menu-item" id="poAdd" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14h6"/></svg><span><b>Add page after</b></span></button>
+  <button class="menu-item" id="poDup" type="button" role="menuitem"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="1.5"/><path d="M16 8V5a1.5 1.5 0 0 0-1.5-1.5h-9A1.5 1.5 0 0 0 4 5v11a1.5 1.5 0 0 0 1.5 1.5H8"/></svg><span><b>Duplicate</b></span></button>
+  <button class="menu-item" id="poUp" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg><span><b>Move earlier</b></span></button>
+  <button class="menu-item" id="poDown" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg><span><b>Move later</b></span></button>
+  <button class="menu-item danger" id="poDel" type="button" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span><b>Delete page</b></span></button>
+</div>
+
+<div class="toast" id="toast" hidden></div>

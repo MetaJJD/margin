@@ -1,0 +1,176 @@
+<div class="app">
+  <div class="bar">
+    <div class="row row1">
+      <button class="btn menu-btn" id="filesBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Files"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">Files</span><svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></button>
+      <button class="icon-btn" id="thumbsBtn" type="button" aria-pressed="false" aria-label="Show page thumbnails" title="Pages sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M5.5 8h1.5M5.5 11.5h1.5M5.5 15h1.5"/></svg></button>
+      <div class="brand">Mar<i>g</i>in</div>
+      <div class="doc-title" id="docTitle">Loading…</div>
+      <span class="spacer-m"></span>
+      <div class="navgroup history" role="group" aria-label="Undo and redo">
+        <button class="icon-btn" id="undoBtn" type="button" aria-label="Undo" title="Undo (two-finger tap)" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+        <button class="icon-btn" id="redoBtn" type="button" aria-label="Redo" title="Redo (three-finger tap)" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+      </div>
+      <div class="sep"></div>
+      <div class="navgroup" role="group" aria-label="Pages">
+        <button class="btn menu-btn pageno-menu" id="pageNo" type="button" aria-haspopup="true" aria-expanded="false" title="Page options"></button>
+        <button class="icon-btn" id="searchBtn" type="button" aria-label="Search and favorites" title="Search and favorites"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
+      </div>
+      <div class="sep"></div>
+      <button class="btn menu-btn" id="viewBtn" type="button" aria-haspopup="true" aria-expanded="false" title="View"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="7" height="8" rx="1"/><rect x="13" y="3" width="7" height="8" rx="1"/><rect x="4" y="13" width="7" height="8" rx="1"/><rect x="13" y="13" width="7" height="8" rx="1"/></svg><span class="lbl">View</span><svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></button>
+      <button class="icon-btn" id="fsBtn" type="button" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+      <button class="btn primary icon-only" id="shareBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Share" title="Share">
+        <svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+      </button>
+    </div>
+    <div class="row row2">
+      <div class="group" role="group" aria-label="Tools">
+        <button class="tool" data-tool="hand" type="button" aria-pressed="false" title="Scroll and select (H)"><svg viewBox="0 0 24 24"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V12M14 12V6.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L3.6 15.4a1.5 1.5 0 0 1 2.5-1.6L8 16"/></svg><span>Select</span></button>
+        <button class="tool" data-tool="pen" type="button" aria-pressed="true" title="Pen (P)"><svg viewBox="0 0 24 24"><path d="M4 20l4.2-1L19 8.2 15.8 5 5 15.8z"/><path d="M13.8 7l3.2 3.2"/></svg><span>Pen</span></button>
+        <button class="tool" data-tool="hl" type="button" aria-pressed="false" title="Highlighter (M)"><svg viewBox="0 0 24 24"><path d="M9.5 14.5L16 4l4 2.5-6.5 10.5z"/><path d="M9.5 14.5l-1.5 3 4 .5 1.5-1.5M4 21h9"/></svg><span>Highlight</span></button>
+        <button class="tool" data-tool="eraser" type="button" aria-pressed="false" title="Eraser (E)"><svg viewBox="0 0 24 24"><path d="M8 20h12M4.4 14.6l8.9-8.9a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 18.1H7.9z"/><path d="M9 10l5 5"/></svg><span>Eraser</span></button>
+        <button class="tool" data-tool="lasso" type="button" aria-pressed="false" title="Lasso: circle writing to move it (L)"><svg viewBox="0 0 24 24"><path d="M12 4c4.4 0 8 2.2 8 5s-3.6 5-8 5-8-2.2-8-5 3.6-5 8-5z" stroke-dasharray="2.6 2.4"/><path d="M8.5 13.6c-1.4 1.6-1.2 3.6.8 4.4s1.8 2.8-.3 3.6"/></svg><span>Lasso</span></button>
+        <button class="tool" data-tool="text" type="button" aria-pressed="false" title="Text box (T)"><svg viewBox="0 0 24 24"><path d="M5 6V4.5h14V6M12 4.5v15M9 19.5h6"/></svg><span>Text</span></button>
+        <button class="tool" data-tool="note" type="button" aria-pressed="false" title="Sticky note (N)"><svg viewBox="0 0 24 24"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5M8.5 9h7M8.5 12.5h4"/></svg><span>Note</span></button>
+      </div>
+      <div class="options">
+        <div class="swatches" id="swatches" role="group" aria-label="Colour"></div>
+        <div class="sizes" id="sizes" role="group" aria-label="Size"></div>
+      </div>
+      <div class="spacer"></div>
+      <button class="tool" id="addPageTool" type="button" title="Add a page to this PDF"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14h6"/></svg><span>Page</span></button>
+      <button class="tool" id="photoBtn" type="button" title="Add a photo"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg><span>Photo</span></button>
+      <button class="tool" id="zoomBoxBtn" type="button" aria-pressed="false" title="Zoom window: write large, lands small"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="9" height="7" rx="1"/><path d="M12 11l3 3"/><rect x="11" y="13" width="10" height="7" rx="1"/></svg><span>Zoom box</span></button>
+    </div>
+    <div class="tabstrip" id="tabStrip" hidden>
+      <div class="tabs" id="tabs" role="tablist" aria-label="Open files"></div>
+      <button class="tab-add" id="tabAdd" type="button" aria-label="Open another file in a new tab" title="Open another file"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <aside class="thumbs" id="thumbs" hidden aria-label="Pages">
+      <div class="thumbs-head"><div class="seg tfilter" id="thumbFilter" role="group" aria-label="Sidebar view"><button type="button" data-v="all" aria-pressed="true" title="All pages" aria-label="All pages"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="7" height="8" rx="1"/><rect x="13" y="3" width="7" height="8" rx="1"/><rect x="4" y="13" width="7" height="8" rx="1"/><rect x="13" y="13" width="7" height="8" rx="1"/></svg></button><button type="button" data-v="fav" aria-pressed="false" title="Favorite pages" aria-label="Favorite pages"><svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/></svg></button><button type="button" data-v="toc" aria-pressed="false" title="Contents (chapters)" aria-label="Contents"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></button></div><button class="icon-btn" id="thumbsClose" type="button" aria-label="Hide pages sidebar"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button></div>
+      <div class="thumb-list" id="thumbList"></div>
+      <p class="thumb-empty" id="thumbEmpty" hidden>No favorite pages yet. Tap the ribbon on any page to add it.</p>
+      <div class="toc" id="tocBox" hidden><ul class="toc-list" id="tocList"></ul></div>
+    </aside>
+    <div class="viewer" id="viewer">
+      <div class="pages" id="pages"></div>
+      <div class="status" id="status" hidden></div>
+    </div>
+    <button class="pnav prev" id="prevPage" type="button" aria-label="Previous page" hidden><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button class="pnav next" id="nextPage" type="button" aria-label="Next page" hidden><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
+</div>
+
+<input type="file" id="photoInput" accept="image/*" hidden>
+<input type="file" id="insertPdfInput" accept="application/pdf,.pdf" hidden>
+<input type="file" id="fileInput" accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pptx,application/vnd.ms-powerpoint,.ppt" hidden>
+
+<div class="scrim" id="libSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="libTitle">
+    <header>
+      <h2 id="libTitle">Library</h2>
+      <button class="icon-btn" id="libClose" type="button" aria-label="Close library"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="body lib-body">
+      <div class="lib-top">
+        <div class="drop-actions">
+          <button class="btn primary" id="openBtn" type="button"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>Open a file</button>
+          <button class="btn" id="newBtn" type="button"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14h6"/></svg>New PDF</button>
+        </div>
+        <input class="input lib-search" id="libSearch" type="search" placeholder="Search your files" autocomplete="off" aria-label="Search your files">
+      </div>
+      <div class="lib-bar">
+        <div class="chips" id="folderChips" role="group" aria-label="Folders"></div>
+        <select class="select lib-sort" id="libSort" aria-label="Sort files">
+          <option value="recent">Recently opened</option>
+          <option value="added">Recently added</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </div>
+      <div class="folder-tools" id="folderTools" hidden></div>
+      <ul class="docs" id="docList"></ul>
+      <div class="drop" id="drop"><p>PDF and PowerPoint (.pptx) files open here. On a computer you can also drop a file anywhere on this window.</p></div>
+      <p class="fine">Your files and notes are saved on this device. Back them up from <b>Files ▾ → Back up</b> now and then.</p>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="noteSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="noteTitle">
+    <header><h2 id="noteTitle">Note</h2></header>
+    <div class="body">
+      <textarea class="note-text" id="noteText" placeholder="Type your note"></textarea>
+      <div class="note-colors" id="noteColors" role="group" aria-label="Note colour"></div>
+      <div class="actions">
+        <button class="btn danger" id="noteDelete" type="button">Delete note</button>
+        <span class="spacer"></span>
+        <button class="btn" id="noteCancel" type="button">Cancel</button>
+        <button class="btn primary" id="noteSave" type="button">Save note</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="pageSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pageTitle">
+    <header>
+      <h2 id="pageTitle">New PDF</h2>
+      <button class="icon-btn" id="pageClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <form class="body form" id="pageForm">
+      <label class="field" id="nameField"><span>Name</span><input class="input" id="pfName" type="text" maxlength="120" autocomplete="off"></label>
+      <div class="field">
+        <span>Page size</span>
+        <select class="select" id="pfSize">
+          <option value="match">Same as this page</option>
+          <option value="A4">A4 · 210 × 297 mm</option>
+          <option value="A5">A5 · 148 × 210 mm</option>
+          <option value="B5">B5 · 176 × 250 mm</option>
+          <option value="Letter">US Letter · 8.5 × 11 in</option>
+          <option value="Legal">US Legal · 8.5 × 14 in</option>
+          <option value="custom">Custom size</option>
+        </select>
+      </div>
+      <div class="two" id="customField" hidden>
+        <label class="field"><span>Width (mm)</span><input class="input" id="pfW" type="number" inputmode="decimal" min="50" max="1000" step="1" value="210"></label>
+        <label class="field"><span>Height (mm)</span><input class="input" id="pfH" type="number" inputmode="decimal" min="50" max="1000" step="1" value="297"></label>
+      </div>
+      <div class="field">
+        <span>Orientation</span>
+        <div class="seg" id="pfOrient" role="group" aria-label="Orientation">
+          <button type="button" data-v="portrait" aria-pressed="true">Portrait</button>
+          <button type="button" data-v="landscape" aria-pressed="false">Landscape</button>
+        </div>
+        <div class="size-hint" id="sizeHint"></div>
+      </div>
+      <div class="field">
+        <span>Page template</span>
+        <div class="templates" id="pfTpl" role="group" aria-label="Page template">
+          <button class="tpl" type="button" data-v="blank" aria-pressed="false"><i class="sheet-mini"></i>Blank</button>
+          <button class="tpl" type="button" data-v="lined" aria-pressed="true"><i class="sheet-mini lined"></i>Lined</button>
+          <button class="tpl" type="button" data-v="grid" aria-pressed="false"><i class="sheet-mini gridp"></i>Grid</button>
+          <button class="tpl" type="button" data-v="dots" aria-pressed="false"><i class="sheet-mini dotsp"></i>Dotted</button>
+          <button class="tpl" type="button" data-v="cornell" aria-pressed="false"><i class="sheet-mini cornellp"></i>Cornell</button>
+        </div>
+      </div>
+      <label class="field" id="countField"><span>Number of pages</span><input class="input" id="pfCount" type="number" inputmode="numeric" min="1" max="200" step="1" value="1"></label>
+      <div class="field" id="posField">
+        <span>Where</span>
+        <div class="seg" id="pfPos" role="group" aria-label="Where to add the page">
+          <button type="button" data-v="after" aria-pressed="true" id="pfPosAfter">After page 1</button>
+          <button type="button" data-v="end" aria-pressed="false">At the end</button>
+        </div>
+      </div>
+      <div class="from-pdf" id="fromPdfField">
+        <button class="btn" id="pfFromPdf" type="button"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 10v6M9 13h6"/></svg>Insert pages from another PDF…</button>
+        <span class="fine">Adds every page of a PDF from Files at the place chosen above.</span>
+      </div>
+      <div class="actions">
+        <span class="spacer"></span>
+        <button class="btn" id="pageCancel" type="button">Cancel</button>
+        <button class="btn primary" id="pageOk" type="submit">Create PDF</button>
+      </div>
+    </form>
+  </div>
+</div>
