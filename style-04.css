@@ -136,3 +136,6 @@ body.read-sepia .gv-page { filter: sepia(.38) saturate(1.1) brightness(.97); }
   .dh-row button.dh { cursor: pointer; } .dh-row button.dh:hover { color: var(--fg); }
   .dh-row .dh.on { color: var(--accent); }
 }
+/* colour line under the selected tool */
+.row2 .tool[data-tool], #fsPill [data-fstool] { position: relative; }
+.row2 .tool[aria-pressed="true"][style*="--tc"]::after, #fsPill [data-fstool][aria-pressed="true"][style*="--tc"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 3px; height: 3px; border-radius: 2px; background: var(--tc); box-shadow: 0 0 0 .5px rgba(0,0,0,.18); }

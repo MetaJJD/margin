@@ -168,6 +168,9 @@ function buildSwatches(box, key, presets, cur, onSelect, cls) {
 /* ---------- toolbar ---------- */
 function renderToolbar() {
   document.querySelectorAll(".tool[data-tool]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tool === state.tool)));
+  /* a line in the tool's current colour shows under the selected pen, highlighter, text or note tool */
+  const toolColor = { pen: state.penColor, hl: state.hlStyle === "marker" ? state.hlColor : state.markColor, text: state.textColor, note: state.noteColor };
+  document.querySelectorAll(".tool[data-tool], #fsPill [data-fstool]").forEach((b) => { const c = toolColor[b.dataset.tool || b.dataset.fstool]; if (c) b.style.setProperty("--tc", c); });
   viewer.className = "viewer tool-" + state.tool;
   const sw = $("swatches"), sz = $("sizes");
   sw.innerHTML = ""; sz.innerHTML = "";
