@@ -90,6 +90,7 @@ body.fullscreen .bar { display: none; }
 .fspill { position: fixed; z-index: 35; top: 10px; left: 10px; touch-action: none; display: flex; align-items: center; gap: 2px; padding: 4px; background: color-mix(in srgb, var(--bar) 92%, transparent); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.18); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .fspill .btn { height: 38px; border: 0; background: transparent; }
 .fspill .btn:hover { background: var(--chip); }
+.fspill #fsZoom[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .fspage { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; padding: 0 8px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
 @keyframes pageNext { from { transform: translateX(56px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes pagePrev { from { transform: translateX(-56px); opacity: 0; } to { transform: none; opacity: 1; } }

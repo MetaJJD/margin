@@ -261,6 +261,7 @@ function renderToolbar() {
   $("readMode").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === (state.readMode || "normal"))));
   $("pencilHint").textContent = state.pencilOnly ? "Apple Pencil writes. Your finger scrolls, swipes and selects." : "Pencil, finger and mouse all write. Pick Select to scroll with your finger.";
   $("zoomBoxBtn").setAttribute("aria-pressed", String(zoom.on));
+  $("fsZoom").setAttribute("aria-pressed", String(zoom.on));
   $("zoomVal").textContent = Math.round(state.zoom * 100) + "%";
   $("undoBtn").disabled = $("zUndo").disabled = $("fsUndo").disabled = !state.undo.length;
   $("redoBtn").disabled = $("zRedo").disabled = $("fsRedo").disabled = !state.redo.length;
