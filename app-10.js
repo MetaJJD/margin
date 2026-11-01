@@ -1,5 +1,26 @@
 /* ---------- page management: duplicate, move, delete ---------- */
 let pageBusy = false;
+/* when a page with a chapter (or a link target) is deleted, point it at the next page that stays */
+function retargetDests(doc, swap) {
+  if (!swap.size) return;
+  const { PDFArray, PDFDict, PDFRef, PDFName } = PDFLib;
+  const seen = new Set();
+  const visit = (obj) => {
+    if (!obj || seen.has(obj)) return;
+    seen.add(obj);
+    if (obj instanceof PDFArray) {
+      const first = obj.get(0), second = obj.size() > 1 ? obj.get(1) : null;
+      if (first instanceof PDFRef && second instanceof PDFName && swap.has(first.toString())) obj.set(0, swap.get(first.toString()));
+      for (let i = 0; i < obj.size(); i++) visit(obj.get(i));
+    } else if (obj instanceof PDFDict) {
+      if (obj.get(PDFName.of("Type")) === PDFName.of("Page")) return;
+      for (const [, v] of obj.entries()) visit(v);
+    } else if (obj instanceof PDFRef) {
+      visit(doc.context.lookup(obj));
+    }
+  };
+  visit(doc.catalog);
+}
 async function applyPageOrder(order, focus, message) {
   if (pageBusy || !state.bytes) return;
   if (!window.PDFLib) { toast("The PDF engine didn't load. Reload and try again."); return; }
@@ -13,6 +34,15 @@ async function applyPageOrder(order, focus, message) {
     const orig = doc.getPages();
     const hasDup = order.length !== new Set(order).size;
     const dupSrc = hasDup ? await PDFLib.PDFDocument.load(state.bytes, { ignoreEncryption: true }) : null;
+    const kept = new Set(order), swap = new Map();
+    for (let n = 1; n <= orig.length; n++) {
+      if (kept.has(n)) continue;
+      let t = n + 1;
+      while (t <= orig.length && !kept.has(t)) t++;
+      if (t > orig.length) { t = n - 1; while (t >= 1 && !kept.has(t)) t--; }
+      if (t >= 1) swap.set(orig[n - 1].ref.toString(), orig[t - 1].ref);
+    }
+    retargetDests(doc, swap);
     for (let i = orig.length - 1; i >= 0; i--) doc.removePage(i);
     const used = new Set();
     for (const n of order) {
