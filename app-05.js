@@ -127,6 +127,7 @@ $("zRight").onclick = () => zoomStep(1);
 $("zNewLine").onclick = zoomNewLine;
 $("zClose").onclick = zoomClose;
 $("zoomBoxBtn").onclick = () => (zoom.on ? zoomClose() : zoomOpen());
+$("fsZoom").onclick = () => { zoom.on ? zoomClose() : zoomOpen(); renderToolbar(); };
 
 let zTimer = null, zSeq = 0, zTask = null;
 function refreshZoom() {
