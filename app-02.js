@@ -48,6 +48,7 @@ async function openDoc(id, name, bytes, presetAnn, keepAnn) {
   renderBookmarks();
   statusEl.hidden = true;
   setThumbsDom();
+  state.viewMode = fileView(id);
   applyViewMode();
   if (mem) {
     state.undo = mem.undo || []; state.redo = mem.redo || [];

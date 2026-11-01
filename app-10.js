@@ -217,11 +217,19 @@ function relayoutKeep() {
 function setViewMode(mode) {
   if (state.viewMode === mode) return;
   const cur = state.curPage || 1;
-  state.viewMode = mode; savePrefs();
+  state.viewMode = mode; savePrefs(); saveFileView(state.id, mode);
   state.zoom = 1;
   state.curPage = cur;
   applyViewMode();
   renderToolbar();
+}
+/* ---------- page layout per file: One page unless this file was last read another way ---------- */
+function fileViews() { try { return JSON.parse(localStorage.getItem("margin-views") || "{}") || {}; } catch (e) { return {}; } }
+function fileView(id) { const v = fileViews()[id]; return v === "vertical" || v === "horizontal" || v === "single" ? v : "single"; }
+function saveFileView(id, mode) {
+  if (!id) return;
+  const all = fileViews(); all[id] = mode;
+  try { localStorage.setItem("margin-views", JSON.stringify(all)); } catch (e) {}
 }
 $("searchBtn").onclick = () => ($("panel").hidden || panelTab !== "search") ? openPanel("search") : closePanel();
 $("panelClose").onclick = closePanel;

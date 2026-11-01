@@ -271,3 +271,105 @@ $("pencilBtn").onclick = () => {
   state.pencilOnly = !state.pencilOnly; savePrefs(); renderToolbar();
   toast(state.pencilOnly ? "Apple Pencil draws. Your finger scrolls." : "Finger and mouse draw too. Pick Select to move around.");
 };
+
+/* ---------- page overview: press and hold a page, then drag it to a new place ---------- */
+/* in Select mode, dragging a selected page moves all the selected pages together */
+const gdrag = { timer: 0, cand: null, on: false, justDropped: false };
+const gvGridEl = $("gvGrid");
+gvGridEl.addEventListener("contextmenu", (e) => { if (gdrag.cand || gdrag.on) e.preventDefault(); });
+gvGridEl.addEventListener("pointerdown", (e) => {
+  const b = e.target.closest(".gv-cell");
+  if (!b || (e.pointerType === "mouse" && e.button !== 0) || pageBusy || gdrag.on) return;
+  clearTimeout(gdrag.timer);
+  gdrag.cand = { b, id: e.pointerId, x: e.clientX, y: e.clientY };
+  gdrag.timer = setTimeout(startGridDrag, 420);
+});
+gvGridEl.addEventListener("pointermove", (e) => {
+  const c = gdrag.cand;
+  if (c && !gdrag.on && e.pointerId === c.id && Math.hypot(e.clientX - c.x, e.clientY - c.y) > 8) { clearTimeout(gdrag.timer); gdrag.cand = null; }
+  if (gdrag.on && e.pointerId === gdrag.id) { e.preventDefault(); moveGridDrag(e.clientX, e.clientY); }
+});
+gvGridEl.addEventListener("pointerup", (e) => endGridDrag(e, false));
+gvGridEl.addEventListener("pointercancel", (e) => endGridDrag(e, true));
+gvGridEl.addEventListener("touchmove", (e) => { if (gdrag.on) e.preventDefault(); }, { passive: false });
+gvGridEl.addEventListener("click", (e) => { if (gdrag.justDropped) { e.stopPropagation(); e.preventDefault(); } }, true);
+function startGridDrag() {
+  const c = gdrag.cand;
+  if (!c || !c.b.isConnected) return;
+  const b = c.b, n = +b.dataset.n, pg = b.querySelector(".gv-page"), r = pg.getBoundingClientRect();
+  const moving = gv.selecting && gv.sel.has(n) ? Array.from(gv.sel).sort((a, z) => a - z) : [n];
+  Object.assign(gdrag, { on: true, id: c.id, b, n, moving, ox: c.x - r.left, oy: c.y - r.top, at: undefined });
+  try { b.setPointerCapture(c.id); } catch (err) {}
+  for (const k of moving) { const el = gv.els[k - 1]; if (el) el.style.opacity = "0.35"; }
+  const g = document.createElement("div");
+  g.style.cssText = "position:fixed;z-index:70;pointer-events:none;background:#fff;border-radius:3px;overflow:hidden;transform:scale(1.06) rotate(-2deg);" +
+    "box-shadow:0 0 0 3px var(--accent),0 14px 34px rgba(10,20,40,.35);width:" + r.width + "px;height:" + r.height + "px;filter:" + getComputedStyle(pg).filter + ";";
+  const cv = pg.querySelector("canvas");
+  if (cv && cv.width) {
+    const cc = document.createElement("canvas"); cc.width = cv.width; cc.height = cv.height;
+    cc.getContext("2d").drawImage(cv, 0, 0);
+    cc.style.cssText = "display:block;width:100%;height:100%;";
+    g.appendChild(cc);
+  }
+  const num = document.createElement("span");
+  num.textContent = moving.length > 1 ? moving.length + " pages" : String(n);
+  num.style.cssText = "position:absolute;left:6px;bottom:6px;min-width:22px;height:22px;padding:0 7px;box-sizing:border-box;border-radius:11px;background:var(--accent);color:#fff;font:600 12px/22px var(--f-ui);text-align:center;";
+  g.appendChild(num);
+  document.body.appendChild(g);
+  const line = document.createElement("div");
+  line.style.cssText = "position:fixed;z-index:69;pointer-events:none;width:4px;border-radius:2px;background:var(--accent);box-shadow:0 0 0 2px var(--desk);display:none;";
+  document.body.appendChild(line);
+  gdrag.ghost = g; gdrag.line = line;
+  moveGridDrag(c.x, c.y);
+  const loop = () => {
+    if (!gdrag.on) return;
+    const lr = gvGridEl.getBoundingClientRect(), y = gdrag.ly;
+    const sp = y < lr.top + 60 ? -Math.ceil((lr.top + 60 - y) / 4) : y > lr.bottom - 60 ? Math.ceil((y - lr.bottom + 60) / 4) : 0;
+    if (sp) { gvGridEl.scrollTop += sp; moveGridDrag(gdrag.lx, gdrag.ly); }
+    gdrag.raf = requestAnimationFrame(loop);
+  };
+  gdrag.raf = requestAnimationFrame(loop);
+}
+/* the drop point is a gap between two pages: before the page under the finger, or after it */
+function moveGridDrag(x, y) {
+  gdrag.lx = x; gdrag.ly = y;
+  gdrag.ghost.style.left = (x - gdrag.ox) + "px";
+  gdrag.ghost.style.top = (y - gdrag.oy) + "px";
+  let best = null, bd = Infinity;
+  for (const el of gv.els) {
+    const r = el.querySelector(".gv-page").getBoundingClientRect();
+    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0, dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    const d = dx * dx + dy * dy * 4;
+    if (d < bd) { bd = d; best = { el, r }; }
+  }
+  if (!best) { gdrag.at = undefined; gdrag.line.style.display = "none"; return; }
+  const after = x > best.r.left + best.r.width / 2, k = +best.el.dataset.n;
+  gdrag.at = after ? k + 1 : k;
+  const lx = after ? best.r.right + 7 : best.r.left - 11;
+  gdrag.line.style.left = lx + "px";
+  gdrag.line.style.top = best.r.top + "px";
+  gdrag.line.style.height = best.r.height + "px";
+  const lr = gvGridEl.getBoundingClientRect();
+  gdrag.line.style.display = best.r.bottom > lr.top && best.r.top < lr.bottom ? "block" : "none";
+}
+function endGridDrag(e, cancelled) {
+  if (gdrag.cand && !gdrag.on && e.pointerId === gdrag.cand.id) { clearTimeout(gdrag.timer); gdrag.cand = null; return; }
+  if (!gdrag.on || e.pointerId !== gdrag.id) return;
+  gdrag.on = false; gdrag.cand = null;
+  cancelAnimationFrame(gdrag.raf);
+  for (const el of gv.els) el.style.opacity = "";
+  const cv = gdrag.ghost.querySelector("canvas"); if (cv) cv.width = 0;
+  gdrag.ghost.remove(); gdrag.line.remove();
+  gdrag.justDropped = true; setTimeout(() => { gdrag.justDropped = false; }, 450);
+  if (cancelled || gdrag.at === undefined) return;
+  /* new order: everything else in place, the moved pages dropped into the gap */
+  const mv = gdrag.moving, set = new Set(mv), N = state.pages.length, order = [];
+  let idx = 0;
+  for (let i = 1; i <= N; i++) { if (i === gdrag.at) idx = order.length; if (!set.has(i)) order.push(i); }
+  if (gdrag.at > N) idx = order.length;
+  order.splice(idx, 0, ...mv);
+  if (order.every((v, i) => v === i + 1)) return;
+  gv.sel.clear();
+  const msg = mv.length > 1 ? "Moved " + mv.length + " pages to page " + (idx + 1) + "." : "Moved page " + mv[0] + " to page " + (idx + 1) + ".";
+  applyPageOrder(order, idx + 1, msg);
+}

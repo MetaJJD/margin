@@ -194,7 +194,6 @@ function setFullscreen(on, byTap) {
       if (ex) { const r = ex.call(document); if (r && r.catch) r.catch(() => {}); }
     }
   } catch (e) {}
-  if (on && byTap) toast("Full screen. Double-tap again to go back.", 2200);
   setTimeout(() => {
     if (on) {
       if (byTap && state.zoom !== 1) state.zoom = 1;
@@ -209,6 +208,13 @@ function setFullscreen(on, byTap) {
     renderToolbar();
   }, 60);
 }
+/* the full screen button sits at the right end of the tools bar, next to the zoom window button;
+   in full screen the exit button shows its icon only */
+$("zoomBoxBtn").after($("fsBtn"));
+$("fsBtn").className = "tool";
+$("fsExit").className = "icon-btn";
+$("fsExit").lastChild.remove();
+$("fsExit").setAttribute("aria-label", "Exit full screen"); $("fsExit").title = "Exit full screen";
 $("fsBtn").onclick = () => setFullscreen(!document.body.classList.contains("fullscreen"));
 $("fsExit").onclick = () => setFullscreen(false);
 $("fsUndo").onclick = undo;
