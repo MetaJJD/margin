@@ -258,9 +258,39 @@ async function renderPage(p) {
   } catch (e) { c.width = 0; }
   p.rendering = false;
   if (p.s !== s && p.near) renderPage(p);
+  else if (p.near) scheduleDetail();
   if (zoom.on && zoom.p === p) refreshZoom();
 }
+function dropDetail(p) { if (p.detail) { p.detail.width = 0; p.detail.remove(); p.detail = null; } }
+let detailTimer = 0;
+function scheduleDetail() { clearTimeout(detailTimer); detailTimer = setTimeout(renderDetails, 180); }
+async function renderDetails() { for (const p of state.pages) if (p.near) await renderDetail(p); }
+async function renderDetail(p) {
+  if (p.detailBusy) return;
+  if (!p.pdfCanvas || dprFor(p) >= fullDpr() - 0.01) { dropDetail(p); return; }
+  const v = visRegion(p, 0);
+  if (!v) return;
+  const c0 = p.detail;
+  if (c0 && c0.s === p.s && v.x >= c0.R.x - 0.5 && v.y >= c0.R.y - 0.5 && v.x + v.w <= c0.R.x + c0.R.w + 0.5 && v.y + v.h <= c0.R.y + c0.R.h + 0.5) return;
+  const R = visRegion(p, 0.2), s0 = p.s, doc = state.id;
+  const d = Math.min(fullDpr(), Math.sqrt(PIXEL_CAP / (R.w * R.h * s0 * s0))), k = s0 * d;
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(R.w * k)); c.height = Math.max(1, Math.round(R.h * k));
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, c.width, c.height);
+  p.detailBusy = true;
+  try { await p.page.render({ canvasContext: ctx, viewport: p.page.getViewport({ scale: k, offsetX: -R.x * k, offsetY: -R.y * k }) }).promise; }
+  catch (e) { c.width = 0; p.detailBusy = false; return; }
+  p.detailBusy = false;
+  if (doc !== state.id || p.s !== s0 || !p.near || !p.pdfCanvas) { c.width = 0; return; }
+  c.className = "detail"; c.s = s0; c.R = R;
+  placeCanvas(c, p, R);
+  dropDetail(p);
+  p.pdfCanvas.after(c);
+  p.detail = c;
+}
 function freePage(p) {
+  dropDetail(p);
   if (p.pdfCanvas) { p.pdfCanvas.width = 0; p.pdfCanvas.remove(); p.pdfCanvas = null; }
   p.rendered = 0;
   if (p.inkK) { p.ink.width = 0; p.ink.height = 0; p.inkK = 0; }
@@ -275,19 +305,20 @@ function updateVisible() {
     if (mode === "single") {
       p.near = p.n === (state.curPage || 1);
       if (!p.near && Math.abs(p.n - (state.curPage || 1)) > 1 && (p.rendered || p.inkK)) freePage(p);
-      if (p.near) { renderPage(p); if (!p.inkK) drawInk(p); best = p; }
+      if (p.near) { renderPage(p); if (!p.inkK || (!inkCovers(p) && !(active && active.p === p))) drawInk(p); best = p; }
       continue;
     }
     const a = horiz ? p.wrap.offsetLeft : p.wrap.offsetTop;
     const len = (horiz ? p.w : p.h) * p.s;
     p.near = a + len > pos - span && a < pos + 2 * span;
     const far = a + len < pos - 3 * span || a > pos + 4 * span;
-    if (p.near) { renderPage(p); if (!p.inkK) drawInk(p); }
+    if (p.near) { renderPage(p); if (!p.inkK || (!inkCovers(p) && !(active && active.p === p))) drawInk(p); }
     else if (far && (p.rendered || p.inkK)) freePage(p);
     const d = Math.abs(a + len / 2 - (pos + span / 2));
     if (d < bestD) { bestD = d; best = p; }
   }
   if (best) state.curPage = best.n;
+  scheduleDetail();
   if (best) markThumb(best.n);
   $("pageNo").innerHTML = best ? '<span class="pn-num">' + best.n + " / " + state.pages.length + '</span><svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>' : "";
   $("fsPage").textContent = best ? best.n + " / " + state.pages.length : "";

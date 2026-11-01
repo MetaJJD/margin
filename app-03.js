@@ -170,19 +170,51 @@ function shouldBlock(e) {
 }
 
 /* ---------- drawing ---------- */
+/* the part of a page that is on screen (plus a margin), in page units; null when off screen */
+function visRegion(p, margin) {
+  const vr = viewer.getBoundingClientRect(), pr = p.wrap.getBoundingClientRect();
+  if (!pr.width || !pr.height) return null;
+  const mx = vr.width * margin, my = vr.height * margin;
+  const x0 = Math.max(0, (vr.left - mx - pr.left) / p.s), y0 = Math.max(0, (vr.top - my - pr.top) / p.s);
+  const x1 = Math.min(p.w, (vr.right + mx - pr.left) / p.s), y1 = Math.min(p.h, (vr.bottom + my - pr.top) / p.s);
+  if (x1 - x0 < 1 || y1 - y0 < 1) return null;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+function fullDpr() { return Math.min(window.devicePixelRatio || 1, 2.5); }
+function placeCanvas(c, p, R) {
+  c.style.left = R ? (R.x / p.w * 100) + "%" : "";
+  c.style.top = R ? (R.y / p.h * 100) + "%" : "";
+  c.style.width = R ? (R.w / p.w * 100) + "%" : "";
+  c.style.height = R ? (R.h / p.h * 100) + "%" : "";
+}
 function prepInk(p) {
-  const d = dprFor(p), k = p.s * d;
-  const W = Math.round(p.w * k), H = Math.round(p.h * k);
+  const dF = fullDpr();
+  let R = null, d = dF;
+  if (p.w * p.h * p.s * p.s * dF * dF > PIXEL_CAP) {
+    R = visRegion(p, 0.3) || { x: 0, y: 0, w: Math.min(p.w, viewer.clientWidth / p.s), h: Math.min(p.h, viewer.clientHeight / p.s) };
+    d = Math.min(dF, Math.sqrt(PIXEL_CAP / (R.w * R.h * p.s * p.s)));
+  }
+  const k = p.s * d;
+  const W = Math.max(1, Math.round((R ? R.w : p.w) * k)), H = Math.max(1, Math.round((R ? R.h : p.h) * k));
   if (p.ink.width !== W || p.ink.height !== H) { p.ink.width = W; p.ink.height = H; }
-  p.inkK = k;
+  placeCanvas(p.ink, p, R);
+  p.inkK = k; p.inkO = R;
   return k;
+}
+function inkCovers(p) {
+  if (!p.inkO) return true;
+  const v = visRegion(p, 0);
+  if (!v) return true;
+  const o = p.inkO, e = 0.5;
+  return v.x >= o.x - e && v.y >= o.y - e && v.x + v.w <= o.x + o.w + e && v.y + v.h <= o.y + o.h + e;
 }
 function drawInk(p, live) {
   const k = prepInk(p);
   const ctx = p.ink.getContext("2d");
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, p.ink.width, p.ink.height);
-  ctx.setTransform(k, 0, 0, k, 0, 0);
+  const o = p.inkO;
+  ctx.setTransform(k, 0, 0, k, o ? -o.x * k : 0, o ? -o.y * k : 0);
   drawLayer(ctx, state.ann[p.n] || [], live);
   drawPageNum(ctx, p);
   drawLassoPath(ctx, p, p.s);

@@ -115,7 +115,7 @@ function moveInput(e) {
     const next = [round2(pt[0]), round2(pt[1]), pr];
     P.push(next);
     if (it.type === "pen") {
-      if (p.inkK) segment(p.ink.getContext("2d"), p.inkK, 0, 0, it, P);
+      if (p.inkK) segment(p.ink.getContext("2d"), p.inkK, p.inkO ? p.inkO.x : 0, p.inkO ? p.inkO.y : 0, it, P);
       if (showZ) segment(zInk.getContext("2d"), zoom.K * zoom.dpr, zoom.x, zoom.y, it, P);
     }
   }
