@@ -444,7 +444,8 @@ function startInput(e, p, map, surface) {
   armHold();
   if (e.pointerType === "pen") armLongPress(e);
   document.body.classList.add("drawing");
-  drawInk(p, item);
+  /* a pen stroke appears as it is drawn; no round dot at the starting point (a tap still leaves a dot when it ends) */
+  drawInk(p, item.type === "pen" ? undefined : item);
 }
 
 /* hold still at the end of a stroke to turn it into a straight line */
