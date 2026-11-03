@@ -19,8 +19,8 @@ const smoothCss = document.createElement("style");
 smoothCss.textContent = ".smooth-ctl { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; padding: 0 4px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }\n" +
   ".smooth-ctl input { width: 96px; accent-color: var(--accent); touch-action: none; }\n" +
   ".smooth-ctl output { min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; color: var(--fg); }\n" +
-  ".qpal .smooth-ctl { margin-left: 0; flex-basis: 100%; }\n" +
-  ".qpal .smooth-ctl input { flex: 1; width: auto; }\n";
+  ".smooth-ctl.in-settings { margin: 0; padding: 0; display: flex; }\n" +
+  ".smooth-ctl.in-settings input { flex: 1; width: auto; }\n";
 document.head.appendChild(smoothCss);
 try { const v = localStorage.getItem("margin-smooth"); if (v != null && +v >= 0 && +v <= 100) smoothing = +v; } catch (e) {}
 /* [how much of each new movement to follow when moving slowly, how fast that rises with speed] */
@@ -46,11 +46,13 @@ function smoothCtl() {
   return l;
 }
 function smoothWanted() { return state.tool === "pen" || (state.tool === "hl" && state.hlStyle === "marker"); }
+/* the slider sits in Settings, under Apple Pencil */
 {
-  const rt = renderToolbar;
-  renderToolbar = function () { rt.apply(this, arguments); if (smoothWanted()) { const sz = $("sizes"); sz.hidden = false; sz.appendChild(smoothCtl()); } };
-  const rq = renderQuickPal;
-  renderQuickPal = function () { rq.apply(this, arguments); const o = quickPal.querySelector(".qopts"); if (o && smoothWanted()) o.appendChild(smoothCtl()); };
+  const lab = document.createElement("div"); lab.className = "pop-label"; lab.textContent = "Pen smoothing";
+  const ctl = smoothCtl(); ctl.classList.add("in-settings");
+  const hint = document.createElement("p"); hint.className = "pop-hint";
+  hint.textContent = "Steadies shaky lines for the pen and marker. Higher is smoother; 0 draws exactly as your hand moves.";
+  $("viewPop").append(lab, ctl, hint);
 }
 /* a pen or highlighter stroke that starts within reach of a long edge sticks to that edge */
 function rulerBegin(e) {
