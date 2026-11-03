@@ -109,11 +109,12 @@ function moveInput(e) {
   const minStep = 0.9 / Math.max(p.s, showZ ? zoom.K : 0);
   /* steady the hand: slow, shaky movement is smoothed a lot, quick movement follows the tip closely */
   const sm = active.sm || (active.sm = [P[0][0], P[0][1]]);
+  const [sb, sk] = smoothParams();
   for (const ev of list) {
     const tip = active.map(ev);
     active.raw = tip;
     const d = Math.hypot(tip[0] - sm[0], tip[1] - sm[1]) * active.scale;
-    const al = Math.min(1, 0.28 + d / 22);
+    const al = Math.min(1, sb + d / sk);
     sm[0] += (tip[0] - sm[0]) * al; sm[1] += (tip[1] - sm[1]) * al;
     const pt = sm;
     const last = P[P.length - 1];
@@ -186,7 +187,10 @@ function endPointer(e, cancelled) {
     const P = a.item.pts, L = P[P.length - 1];
     if (Math.hypot(a.raw[0] - L[0], a.raw[1] - L[1]) * a.scale > 0.6) P.push([round2(a.raw[0]), round2(a.raw[1]), L[2]]);
   }
-  if (a.item.type === "pen" && !a.straight && !a.shape) a.item.pts = smoothStroke(a.item.pts);
+  if (a.item.type === "pen" && !a.straight && !a.shape && smoothing > 0) {
+    a.item.pts = smoothStroke(a.item.pts);
+    if (smoothing >= 80) a.item.pts = smoothStroke(a.item.pts);
+  }
   (state.ann[a.p.n] = state.ann[a.p.n] || []).push(a.item);
   commit({ t: "add", n: a.p.n, item: a.item });
   drawInk(a.p);

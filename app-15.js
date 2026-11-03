@@ -13,6 +13,45 @@ function setRuler(on) {
     if (!localStorage.getItem("margin-ruler-tip")) { toast("Drag the ruler with one finger, turn it with two. Draw along its edge for a straight line.", 5000); try { localStorage.setItem("margin-ruler-tip", "1"); } catch (e) {} }
   }
 }
+/* ---------- smoothing: how much Margin steadies the pen and marker (0 = exactly as drawn) ---------- */
+var smoothing = 50;
+const smoothCss = document.createElement("style");
+smoothCss.textContent = ".smooth-ctl { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; padding: 0 4px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }\n" +
+  ".smooth-ctl input { width: 96px; accent-color: var(--accent); touch-action: none; }\n" +
+  ".smooth-ctl output { min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; color: var(--fg); }\n" +
+  ".qpal .smooth-ctl { margin-left: 0; flex-basis: 100%; }\n" +
+  ".qpal .smooth-ctl input { flex: 1; width: auto; }\n";
+document.head.appendChild(smoothCss);
+try { const v = localStorage.getItem("margin-smooth"); if (v != null && +v >= 0 && +v <= 100) smoothing = +v; } catch (e) {}
+/* [how much of each new movement to follow when moving slowly, how fast that rises with speed] */
+function smoothParams() {
+  const s = smoothing;
+  const base = s <= 50 ? 1 - 0.72 * s / 50 : 0.28 - 0.2 * (s - 50) / 50;
+  return [base, 8 + 0.28 * s];
+}
+function smoothCtl() {
+  const l = document.createElement("label");
+  l.className = "smooth-ctl"; l.title = "Smooth lines: higher steadies shaky lines more";
+  const t = document.createElement("span"); t.textContent = "Smooth";
+  const r = document.createElement("input");
+  r.type = "range"; r.min = "0"; r.max = "100"; r.step = "5"; r.value = String(smoothing);
+  r.setAttribute("aria-label", "Line smoothing");
+  const o = document.createElement("output"); o.textContent = String(smoothing);
+  r.addEventListener("input", () => {
+    smoothing = +r.value; o.textContent = r.value;
+    try { localStorage.setItem("margin-smooth", r.value); } catch (e) {}
+  });
+  r.addEventListener("pointerdown", (e) => e.stopPropagation());
+  l.append(t, r, o);
+  return l;
+}
+function smoothWanted() { return state.tool === "pen" || (state.tool === "hl" && state.hlStyle === "marker"); }
+{
+  const rt = renderToolbar;
+  renderToolbar = function () { rt.apply(this, arguments); if (smoothWanted()) { const sz = $("sizes"); sz.hidden = false; sz.appendChild(smoothCtl()); } };
+  const rq = renderQuickPal;
+  renderQuickPal = function () { rq.apply(this, arguments); const o = quickPal.querySelector(".qopts"); if (o && smoothWanted()) o.appendChild(smoothCtl()); };
+}
 /* a pen or highlighter stroke that starts within reach of a long edge sticks to that edge */
 function rulerBegin(e) {
   ruler.lock = null;
