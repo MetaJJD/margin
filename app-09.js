@@ -31,7 +31,7 @@ async function buildPdf() {
       let emb = embedded.get(it.src);
       if (!emb) { emb = it.src.indexOf("data:image/png") === 0 ? await out.embedPng(it.src) : await out.embedJpg(it.src); embedded.set(it.src, emb); }
       const bl = P(it.x, it.y + it.h);
-      op.drawImage(emb, { x: bl.x, y: bl.y, width: it.w, height: it.h });
+      op.drawImage(emb, { x: bl.x, y: bl.y, width: it.w, height: it.h, opacity: it.op == null ? 1 : it.op });
     }
     const hlGroups = new Map();
     for (const it of items.filter((i) => i.type === "hl")) {
@@ -48,6 +48,7 @@ async function buildPdf() {
     for (const it of items.filter((i) => i.type === "pen")) {
       const color = hexRgb(it.color), Q = it.pts;
       if (Q.length === 1) { const r = P(Q[0][0], Q[0][1]); op.drawCircle({ x: r.x, y: r.y, size: it.w * 0.6, color }); continue; }
+      if (it.sharp || it.fill || it.style) { pdfStyled(op, it, P); continue; }
       const D = curvePts(Q, 3);
       for (let i = 1; i < D.length; i++) {
         op.drawLine({ start: P(D[i - 1][0], D[i - 1][1]), end: P(D[i][0], D[i][1]), thickness: penWidth(it, D[i - 1], D[i]), color, lineCap: LineCapStyle.Round });
