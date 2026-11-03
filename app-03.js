@@ -271,7 +271,7 @@ function curvePts(P, steps) {
   return out;
 }
 function strokeSmooth(ctx, it, P) {
-  const D = curvePts(P, 4);
+  const D = curvePts(P, 6);
   let bucket = null;
   ctx.beginPath(); ctx.moveTo(D[0][0], D[0][1]);
   for (let i = 1; i < D.length; i++) {
@@ -467,8 +467,9 @@ function tryStraighten() {
   if (gap < diag * 0.3 && P.length >= 8 && Math.min(bb.w, bb.h) * a.scale >= 16) {
     const shape = fitEllipse(P, bb) || fitRect(P, bb, a.scale);
     if (shape) {
+      const pts = shape;
       a.shape = true;
-      a.item.pts = shape.map((q) => [round2(q[0]), round2(q[1]), pr]);
+      a.item.pts = pts.map((q) => [round2(q[0]), round2(q[1]), pr]);
       drawInk(a.p, a.item);
       return;
     }
