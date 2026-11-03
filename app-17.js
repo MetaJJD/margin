@@ -42,10 +42,10 @@ toolPop.className = "toolpop"; toolPop.hidden = true;
 toolPop.setAttribute("role", "dialog"); toolPop.setAttribute("aria-label", "Tool options");
 {
   const opts = document.querySelector(".row2 .options");
-  /* saved pens stay in the toolbar for one-tap switching */
+  /* saved pens and the save button live in the pen and highlighter panel */
   const keep = document.createElement("div"); keep.id = "penPresets"; keep.className = "pen-presets";
   keep.setAttribute("role", "group"); keep.setAttribute("aria-label", "Saved pens");
-  opts.after(keep);
+  opts.appendChild(keep);
   toolPop.appendChild(opts);
   document.body.appendChild(toolPop);
   const css = document.createElement("style");
@@ -56,13 +56,14 @@ toolPop.setAttribute("role", "dialog"); toolPop.setAttribute("aria-label", "Tool
     ".toolpop .options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }\n" +
     ".toolpop .swatches, .toolpop .sizes { flex-wrap: wrap; align-items: center; gap: 6px; }\n" +
     ".toolpop .tool-hint { white-space: normal; max-width: 260px; }\n" +
+    ".toolpop .pen-presets[hidden] { display: none; }\n" +
     "body.read-night .toolpop { filter: none; }\n";
   document.head.appendChild(css);
 }
 let tpAnchor = null, tpTool = null, pillAnchor = null;
 function toolHasOptions() {
-  const sw = $("swatches"), sz = $("sizes");
-  return (!sw.hidden && sw.childElementCount > 0) || (!sz.hidden && sz.childElementCount > 0);
+  const sw = $("swatches"), sz = $("sizes"), pp = $("penPresets");
+  return (!sw.hidden && sw.childElementCount > 0) || (!sz.hidden && sz.childElementCount > 0) || (!pp.hidden && pp.childElementCount > 0);
 }
 function hideToolPop() { toolPop.hidden = true; tpTool = null; }
 function placeToolPop() {
@@ -107,8 +108,16 @@ window.addEventListener("resize", () => placeToolPop());
   const rt = renderToolbar;
   renderToolbar = function () {
     rt.apply(this, arguments);
+    $("penPresets").hidden = state.tool !== "pen" && state.tool !== "hl";
     if (toolPop.hidden) return;
-    if (state.tool !== tpTool || !toolHasOptions()) hideToolPop(); else placeToolPop();
+    if (state.tool !== tpTool) {
+      /* a saved pen picked in the panel can switch pen and highlighter: the panel follows */
+      const inPill = tpAnchor && tpAnchor.closest && tpAnchor.closest("#fsPill");
+      const a = inPill ? document.querySelector('#fsPill [data-fstool="' + state.tool + '"]') : document.querySelector('.row2 .tool[data-tool="' + state.tool + '"]');
+      if (!a) { hideToolPop(); return; }
+      tpAnchor = a; tpTool = state.tool;
+    }
+    if (!toolHasOptions()) hideToolPop(); else placeToolPop();
   };
 }
 
