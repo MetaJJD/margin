@@ -118,22 +118,84 @@ function renderTrash(list) {
 })();
 
 /* ---------- links inside the PDF: tap to follow (finger, or the Select tool) ---------- */
+function addLinkBox(p, link) {
+  p.links.push(link);
+  const box = document.createElement("div");
+  box.className = "lnk"; box.title = link.url || "Go to page" + (link.page ? " " + link.page : "");
+  box.style.cssText = "left:" + (link.x / p.w * 100) + "%;top:" + (link.y / p.h * 100) + "%;width:" + (link.w / p.w * 100) + "%;height:" + (link.h / p.h * 100) + "%;";
+  p.wrap.appendChild(box);
+}
 function loadLinks(p) {
   p.linksP = p.page.getAnnotations({ intent: "display" }).then((anns) => {
     p.links = [];
     for (const a of anns || []) {
-      if (a.subtype !== "Link" || !a.rect || !(a.url || a.unsafeUrl || a.dest)) continue;
+      if (a.subtype !== "Link" || !a.rect || !(a.url || a.unsafeUrl || a.dest || a.action)) continue;
       const r = p.vp.convertToViewportRectangle(a.rect);
       const x = Math.min(r[0], r[2]), y = Math.min(r[1], r[3]), w = Math.abs(r[2] - r[0]), h = Math.abs(r[3] - r[1]);
       if (w < 1 || h < 1) continue;
-      const link = { x, y, w, h, url: a.url || a.unsafeUrl || null, dest: a.dest || null };
-      p.links.push(link);
-      const box = document.createElement("div");
-      box.className = "lnk"; box.title = link.url || "Go to page";
-      box.style.cssText = "left:" + (x / p.w * 100) + "%;top:" + (y / p.h * 100) + "%;width:" + (w / p.w * 100) + "%;height:" + (h / p.h * 100) + "%;";
-      p.wrap.appendChild(box);
+      addLinkBox(p, { x, y, w, h, url: a.url || a.unsafeUrl || null, dest: a.dest || null, action: a.action || null });
     }
-  }).catch(() => { p.links = []; });
+    return findContentsLines(p);
+  }).catch(() => { p.links = p.links || []; });
+}
+/* a printed contents page without real links ("Chapter 2 ........ 15"): make each line tappable.
+   The printed number is matched to the right page by the PDF's page labels, or by finding the
+   chapter title on the pages near that number (front matter often shifts the numbering). */
+async function findContentsLines(p) {
+  const tc = await p.page.getTextContent();
+  const rows = [];
+  for (const it of tc.items) {
+    if (typeof it.str !== "string" || !it.str.trim()) continue;
+    const tx = pdfjsLib.Util.transform(p.vp.transform, it.transform);
+    const fh = Math.hypot(tx[2], tx[3]) || 10, w = it.width * p.vp.scale;
+    const box = { x: tx[4], y: tx[5] - fh * 0.9, w: Math.max(2, w), h: fh * 1.15, s: it.str, base: tx[5] };
+    let row = rows.find((r) => Math.abs(r.base - box.base) < fh * 0.45);
+    if (!row) { row = { base: box.base, items: [] }; rows.push(row); }
+    row.items.push(box);
+  }
+  const lines = [];
+  for (const r of rows) {
+    r.items.sort((a, b) => a.x - b.x);
+    const text = r.items.map((b) => b.s).join(" ").replace(/\s+/g, " ").trim();
+    const m = text.match(/^(.*?[A-Za-zÀ-ɏ一-鿿぀-ヿ].*?)[\s.·…_\-]*?(\d{1,4})$/);
+    if (!m) continue;
+    const last = r.items[r.items.length - 1], first = r.items[0];
+    const leaders = /(\.\s*){3,}|…|(_\s*){3,}/.test(text);
+    const gap = r.items.length > 1 && last.x - (r.items[r.items.length - 2].x + r.items[r.items.length - 2].w) > 24;
+    if (!leaders && !gap) continue;
+    const x1 = first.x, y1 = Math.min(...r.items.map((b) => b.y)), x2 = Math.max(...r.items.map((b) => b.x + b.w)), y2 = Math.max(...r.items.map((b) => b.y + b.h));
+    if (p.links.some((l) => l.y < y2 && l.y + l.h > y1 && l.x < x2 && l.x + l.w > x1)) continue;
+    lines.push({ title: m[1].replace(/[\s.·…_\-]+$/, "").trim(), num: +m[2], x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+  }
+  if (lines.length < 3) return;
+  const N = state.pages.length;
+  let labels = null;
+  try { labels = await state.pdf.getPageLabels(); } catch (e) {}
+  let shift = null;
+  if (!labels) {
+    /* find how far the printed numbers are from the page positions, using the first few titles */
+    const votes = {};
+    const norm = (t) => t.toLowerCase().replace(/[^a-z0-9À-ɏ一-鿿぀-ヿ]+/g, "");
+    for (const l of lines.slice(0, 4)) {
+      const key = norm(l.title).slice(0, 24);
+      if (key.length < 4) continue;
+      for (let k = 0; k <= 40; k++) {
+        const n = l.num + k;
+        if (n < 1 || n > N || n === p.n) continue;
+        const t = await pageText(state.pages[n - 1]);
+        if (norm(t.str).includes(key)) { votes[k] = (votes[k] || 0) + 1; break; }
+      }
+    }
+    const best = Object.keys(votes).sort((a, b) => votes[b] - votes[a])[0];
+    shift = best != null ? +best : 0;
+  }
+  for (const l of lines) {
+    let n = null;
+    if (labels) { const i = labels.indexOf(String(l.num)); if (i >= 0) n = i + 1; }
+    if (n == null) n = l.num + (shift || 0);
+    if (n < 1 || n > N || n === p.n) continue;
+    addLinkBox(p, { x: l.x - 2, y: l.y, w: l.w + 4, h: l.h, page: n });
+  }
 }
 function linkAt(p, pt) {
   if (!p.links) return null;
@@ -141,6 +203,12 @@ function linkAt(p, pt) {
   return p.links.find((l) => pt[0] >= l.x - pad && pt[0] <= l.x + l.w + pad && pt[1] >= l.y - pad && pt[1] <= l.y + l.h + pad) || null;
 }
 async function followLink(l) {
+  if (l.page) { goToPage(l.page, null, true); toast("Page " + l.page, 1200); return; }
+  if (l.action && !l.url && !l.dest) {
+    const n = { FirstPage: 1, LastPage: state.pages.length, NextPage: (state.curPage || 1) + 1, PrevPage: (state.curPage || 1) - 1 }[l.action];
+    if (n >= 1 && n <= state.pages.length) goToPage(n, null, true);
+    return;
+  }
   if (l.url) {
     if (!/^(https?:|mailto:|tel:)/i.test(l.url)) { toast("This link can't be opened from Margin."); return; }
     const w = window.open(l.url, "_blank", "noopener");
@@ -162,6 +230,21 @@ async function followLink(l) {
     toast("Page " + p.n, 1200);
   } catch (e) { toast("This link points somewhere Margin can't find."); }
 }
+
+/* a quick tap with the pen or highlighter on a link follows it instead of leaving a dot */
+viewer.addEventListener("pointerup", (e) => {
+  const a = active;
+  if (!a || a.id !== e.pointerId || !a.item || a.markStyle || a.straight || a.shape || (a.tool !== "pen" && a.tool !== "hl")) return;
+  const P = a.item.pts, p = a.p;
+  if (!p.links || !p.links.length || P.some((q) => Math.hypot(q[0] - P[0][0], q[1] - P[0][1]) * p.s > 6)) return;
+  const l = linkAt(p, P[0]);
+  if (!l) return;
+  active = null;
+  clearTimeout(holdTimer);
+  document.body.classList.remove("drawing");
+  drawInk(p);
+  followLink(l);
+}, true);
 
 /* ---------- select and copy text: with the Select tool, press and hold on words ---------- */
 function textLayerFor(p) {
