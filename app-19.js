@@ -114,10 +114,76 @@ if (gdOn()) {
   }, true);
 }
 
+/* ---------- keep the screen awake while Margin is open ---------- */
+const wake = { on: false, lock: null, video: null };
+try { wake.on = localStorage.getItem("margin-awake") === "1"; } catch (e) {}
+async function wakeHold() {
+  if (!wake.on || document.visibilityState !== "visible") return;
+  if (navigator.wakeLock && (!wake.lock || wake.lock.released)) {
+    try { wake.lock = await navigator.wakeLock.request("screen"); } catch (e) { wake.lock = null; }
+  }
+  /* backup for iPads where the request above isn't honoured: a tiny silent video playing out of sight */
+  if (!wake.video) {
+    const v = wake.video = document.createElement("video");
+    v.muted = true; v.loop = true; v.playsInline = true;
+    v.setAttribute("muted", ""); v.setAttribute("playsinline", ""); v.setAttribute("aria-hidden", "true");
+    v.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;";
+    v.src = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANBbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAD6AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAmt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAD6AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAA+gAAAAAAABAAAAAAHjbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAABAABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABjm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAU5zdGJsAAAAtnN0c2QAAAAAAAAAAQAAAKZhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALGF2Y0MBQsAK/+EAFWdCwAraewEQAAADABAAAAMAQPEiagEABGjOD8gAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAAFiAAABYgAAAAYc3R0cwAAAAAAAAABAAAACAAAIAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAABxzdHNjAAAAAAAAAAEAAAABAAAACAAAAAEAAAA0c3RzegAAAAAAAAAAAAAACAAAAoUAAAAJAAAACQAAAAkAAAAJAAAACQAAAAkAAAAJAAAAFHN0Y28AAAAAAAAAAQAAA3EAAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAACzG1kYXQAAAJvBgX//2vcRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MCByZWY9MSBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgxOjB4MTExIG1lPWhleCBzdWJtZT0yIHBzeT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTAgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0wIDh4OGRjdD0wIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PTAgdGhyZWFkcz0xIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MCB3ZWlnaHRwPTAga2V5aW50PTI1MCBrZXlpbnRfbWluPTIgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD0xMCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAAOZYiEBX///w9FAAFC34AAAAAFQZogFfUAAAAFQZpAFfUAAAAFQZpgFfUAAAAFQZqAFPUAAAAFQZqgFPUAAAAFQZrAFPUAAAAFQZrgEvU=";
+    document.body.appendChild(v);
+  }
+  if (wake.video.paused) { try { await wake.video.play(); } catch (e) {} }
+}
+function wakeLetGo() {
+  if (wake.lock) { try { wake.lock.release(); } catch (e) {} wake.lock = null; }
+  if (wake.video) wake.video.pause();
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wakeHold(); });
+document.addEventListener("pointerdown", () => { if (wake.on && ((!wake.lock || wake.lock.released) || (wake.video && wake.video.paused))) wakeHold(); }, true);
+{
+  const row = document.createElement("button");
+  row.type = "button"; row.className = "setting-row"; row.id = "awakeBtn";
+  row.innerHTML = '<span><b>Keep screen awake</b><small>The iPad screen stays on while Margin is open, so it won’t dim or lock while you read or write.</small></span><span class="toggle"><span class="knob"></span></span>';
+  const lab = document.createElement("div"); lab.className = "pop-label"; lab.textContent = "Screen";
+  $("pencilBtn").after(lab, row);
+  const sync = () => row.setAttribute("aria-pressed", String(wake.on));
+  sync();
+  row.onclick = () => {
+    wake.on = !wake.on;
+    try { localStorage.setItem("margin-awake", wake.on ? "1" : "0"); } catch (e) {}
+    sync();
+    if (wake.on) { wakeHold(); toast("The screen stays on while Margin is open.", 2500); } else { wakeLetGo(); toast("The screen can turn off as usual.", 2500); }
+  };
+  if (wake.on) wakeHold();
+}
+
 /* ---------- PowerPoint (.pptx) to PDF ---------- */
 const H2C_URL = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
 const PPTX_UMD = "https://cdn.jsdelivr.net/npm/pptx-preview@1.0.7/dist/pptx-preview.umd.js";
 const PPTX_ESM = "https://cdn.jsdelivr.net/npm/pptx-preview@1.0.7/+esm";
+/* the main converter: lays slides out like PowerPoint (text, bullets, tables, charts, shapes) */
+const PPTX_R = "https://cdn.jsdelivr.net/npm/@aiden0z/pptx-renderer@1.4.0/dist/aiden0z-pptx-renderer.browser.es.js";
+let rendererP = null;
+function ensureRenderer() {
+  if (!rendererP) rendererP = (async () => {
+    if (!window.html2canvas) await loadScript(H2C_URL);
+    const m = await import(PPTX_R);
+    if (!m || !m.PptxViewer) throw new Error("renderer missing");
+    return m;
+  })().catch((e) => { rendererP = null; throw e; });
+  return rendererP;
+}
+/* lay out every slide in hostEl with the main converter; returns the slide elements */
+async function layoutSlides(hostEl, buf, W) {
+  const R = await ensureRenderer();
+  hostEl.style.width = W + "px";
+  const viewer = await R.PptxViewer.open(buf.slice(0), hostEl, { zipLimits: R.RECOMMENDED_ZIP_LIMITS, width: W, pdfjs: false, listOptions: { windowed: false } });
+  await waitImages(hostEl);
+  try { await document.fonts.ready; } catch (e) {}
+  await nextFrame(); await nextFrame();
+  const slides = Array.from(hostEl.children).filter((el) => el.offsetWidth > 100 && el.offsetHeight > 50);
+  if (!slides.length) throw new Error("no slides");
+  return { slides, done: () => { try { viewer.destroy && viewer.destroy(); } catch (e) {} } };
+}
 function loadScript(src) {
   return new Promise((res, rej) => {
     const s = document.createElement("script");
@@ -158,37 +224,48 @@ async function convertPptx(file, buf) {
   hostEl.style.cssText = "position:fixed;left:-40000px;top:0;width:1280px;pointer-events:none;background:#fff;color:#000;";
   document.body.appendChild(hostEl);
   try {
-    const lib = await ensureConverter();
-    showStatus("Reading " + name + "…");
     const W = 1280;
-    let H = 720;
-    let pv = lib.init(hostEl, { width: W, height: H, mode: "list" });
-    await pv.preview(buf.slice(0));
-    const sw = pv.pptx && pv.pptx.width, sh = pv.pptx && pv.pptx.height;
-    if (sw && sh && Math.abs(sh / sw - H / W) > 0.01) {
-      try { pv.destroy && pv.destroy(); } catch (e) {}
-      hostEl.innerHTML = "";
-      H = Math.round(W * sh / sw);
-      pv = lib.init(hostEl, { width: W, height: H, mode: "list" });
-      await pv.preview(buf.slice(0));
+    let H = 720, slides = null, done = () => {}, sharp = 2;
+    try {
+      showStatus("Reading " + name + "…");
+      const r = await layoutSlides(hostEl, buf, W);
+      slides = r.slides; done = r.done;
+      H = Math.round(slides[0].offsetHeight * W / slides[0].offsetWidth);
+    } catch (e) {
+      /* fall back to the simpler converter */
+      hostEl.innerHTML = ""; slides = null; sharp = 1.5;
     }
-    await waitImages(hostEl);
-    try { await document.fonts.ready; } catch (e) {}
-    await nextFrame();
-    let slides = Array.from(hostEl.querySelectorAll(".pptx-preview-slide-wrapper"));
-    if (!slides.length) throw new Error("no slides");
+    if (!slides) {
+      const lib = await ensureConverter();
+      let pv = lib.init(hostEl, { width: W, height: H, mode: "list" });
+      await pv.preview(buf.slice(0));
+      const sw = pv.pptx && pv.pptx.width, sh = pv.pptx && pv.pptx.height;
+      if (sw && sh && Math.abs(sh / sw - H / W) > 0.01) {
+        try { pv.destroy && pv.destroy(); } catch (e) {}
+        hostEl.innerHTML = "";
+        H = Math.round(W * sh / sw);
+        pv = lib.init(hostEl, { width: W, height: H, mode: "list" });
+        await pv.preview(buf.slice(0));
+      }
+      await waitImages(hostEl);
+      try { await document.fonts.ready; } catch (e) {}
+      await nextFrame();
+      slides = Array.from(hostEl.querySelectorAll(".pptx-preview-slide-wrapper"));
+      if (!slides.length) throw new Error("no slides");
+    }
     const out = await PDFLib.PDFDocument.create();
     out.setTitle(name);
     const PW = 720, PH = Math.round(720 * H / W * 100) / 100;
     for (let i = 0; i < slides.length; i++) {
       showStatus("Converting slide " + (i + 1) + " of " + slides.length + "…");
       await nextFrame();
-      const c = await window.html2canvas(slides[i], { backgroundColor: "#ffffff", scale: 1.5, logging: false, useCORS: true });
-      const jpg = await out.embedJpg(c.toDataURL("image/jpeg", 0.88));
+      const c = await window.html2canvas(slides[i], { backgroundColor: "#ffffff", scale: sharp, logging: false, useCORS: true });
+      const jpg = await out.embedJpg(c.toDataURL("image/jpeg", 0.9));
       c.width = 0; c.height = 0;
       const pg = out.addPage([PW, PH]);
       pg.drawImage(jpg, { x: 0, y: 0, width: PW, height: PH });
     }
+    done();
     const bytes = await out.save();
     const id = name + "|" + file.size + "|pptx|" + Date.now().toString(36);
     const ok = await openDoc(id, name, bytes);
