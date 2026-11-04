@@ -32,7 +32,9 @@ const APP_FILES = [
   "./app-14.js",
   "./app-15.js",
   "./app-16.js",
-  "./app-17.js"
+  "./app-17.js",
+  "./app-18.js",
+  "./app-19.js"
 ];
 
 /* the PDF engines Margin needs on every launch */
