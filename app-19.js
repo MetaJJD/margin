@@ -34,7 +34,7 @@ gdBox.innerHTML =
 {
   const lab = document.createElement("div"); lab.className = "pop-label"; lab.textContent = "Google Drive";
   $("viewPop").append(lab, gdBox);
-  gdBox.querySelector("#gdOrigin").textContent = location.origin.indexOf("http") === 0 ? location.origin : "https://metajjd.github.io";
+  gdBox.querySelector("#gdOrigin").textContent = /^https?:/.test(location.origin) && !/claudeusercontent|claude\.ai/.test(location.origin) ? location.origin : "https://metajjd.github.io";
   const css = document.createElement("style");
   css.textContent = ".gd-box { display: flex; flex-direction: column; gap: 8px; }\n" +
     ".gd-line { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }\n" +
@@ -83,7 +83,7 @@ $("gdConnect").onclick = async () => {
   if (!/\.apps\.googleusercontent\.com$/.test(id)) { toast("That doesn't look like a Client ID. It ends in .apps.googleusercontent.com.", 4500); return; }
   gd.cfg.clientId = id; gdSave();
   try { await gdLoadGis(); }
-  catch (e) { toast("Google sign-in couldn't load here. Open Margin from its own web address (" + ($("gdOrigin").textContent) + ") and try again.", 7000); return; }
+  catch (e) { toast("Google sign-in doesn't work in this preview. Open Margin at https://metajjd.github.io/margin/ (your Home Screen app) and connect Drive there.", 8000); return; }
   try { await gdAskToken(true); }
   catch (e) { toast("Google didn't connect (" + e.message + "). Check the Client ID and that " + $("gdOrigin").textContent + " is an authorized origin.", 7000); return; }
   gd.cfg.connected = true; gdSave(); gdStatus("ok");
