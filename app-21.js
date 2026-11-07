@@ -89,12 +89,45 @@ function peStart(e, p, map) {
   peShow(p, item, true, item.color);
   Object.assign(pe.cur, { b0: item.bold, i0: item.italic, s0: item.size });
   const cur = pe.cur;
-  peColours(p, L).then((col) => {
-    if (!col || pe.cur !== cur) return;
-    item.bg = col.bg; item.ink = col.ink; cur.ink = col.ink;
-    if (item.color === "#111827") item.color = col.ink;
+  const tapX = pt[0];
+  peAnalyse(p, L).then((an) => {
+    if (!an || pe.cur !== cur) return;
+    item.bg = an.bg; item.ink = an.ink; cur.ink = an.ink;
+    if (item.color === "#111827") item.color = an.ink;
     cur.before.color = item.color;
-    pePosition(); peDots();
+    /* a table line runs through this line of text: keep only the cell that was tapped */
+    let segL = L.x - 2, segR = L.x + L.w + 2;
+    for (const vx of an.vRules) if (vx > L.x + 0.5 && vx < L.x + L.w - 0.5) { if (vx <= tapX) segL = Math.max(segL, vx); else segR = Math.min(segR, vx); }
+    if (segL > L.x - 2 || segR < L.x + L.w + 2) {
+      const runs = L.runs.filter((r) => r.x + r.w / 2 > segL && r.x + r.w / 2 < segR);
+      if (runs.length) {
+        let str = "", end = null;
+        for (const r of runs) { if (end !== null && r.x - end > L.fh * 0.15 && !/\s$/.test(str) && !/^\s/.test(r.str)) str += " "; str += r.str; end = r.x + r.w; }
+        str = str.replace(/^\s+|\s+$/g, "");
+        const untouched = pe.txt.textContent === item.orig;
+        item.bx = round2(runs[0].x); item.x = round2(runs[0].x - 1); item.w = round2(end - runs[0].x + 2);
+        item.orig = str;
+        if (untouched) {
+          item.text = str; pe.txt.textContent = str;
+          try { const rg = document.createRange(); rg.selectNodeContents(pe.txt); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); } catch (e) {}
+        }
+        const nat = peMeasure(Object.assign({}, item, { hs: 1 }), str);
+        if (nat > 0) item.hs = Math.round(Math.max(0.7, Math.min(1.35, (end - runs[0].x) / nat)) * 1000) / 1000;
+      }
+    }
+    /* cover just the old letters, never the table lines around them */
+    const g = an.box(Math.max(segL + 0.4, item.bx - 1), Math.min(segR - 0.4, item.bx + item.w));
+    if (g) {
+      if (g.bg) item.bg = g.bg;
+      if (g.ink && item.color === cur.ink) { item.color = g.ink; cur.before.color = g.ink; }
+      if (g.ink) { item.ink = g.ink; cur.ink = g.ink; }
+      const m = 1.1;
+      let y1 = g.y1 - m, y2 = g.y2 + m, x1 = g.x1 - m, x2 = g.x2 + m;
+      for (const hy of an.hRules) { if (hy < g.y1) y1 = Math.max(y1, hy + 0.5); if (hy > g.y2) y2 = Math.min(y2, hy - 0.2); }
+      x1 = Math.max(x1, segL + 0.5); x2 = Math.min(x2, segR - 0.3);
+      item.cv = { x: round2(x1), y: round2(y1), w: round2(x2 - x1), h: round2(y2 - y1) };
+    }
+    pePosition(); peDots(); placeBoxBar(pe.box, pe.bar);
   });
 }
 {
@@ -117,12 +150,16 @@ async function peBake(fn) {
     const eds = (state.ann[p.n] || []).filter((it) => it.type === "edit");
     if (!eds.length) continue;
     const op = pages[p.n - 1];
+    const pdfRect = (x, y, w, h) => {
+      const a = p.vp.convertToPdfPoint(x, y + h), b = p.vp.convertToPdfPoint(x + w, y);
+      return { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), width: Math.abs(b[0] - a[0]), height: Math.abs(b[1] - a[1]) };
+    };
     for (const it of eds) {
-      const cw = peCoverW(it);
-      const a = p.vp.convertToPdfPoint(it.x, it.y + it.h), b = p.vp.convertToPdfPoint(it.x + cw, it.y);
-      const rx = Math.min(a[0], b[0]), ry = Math.min(a[1], b[1]), rw = Math.abs(b[0] - a[0]), rh = Math.abs(b[1] - a[1]);
-      op.drawRectangle({ x: rx, y: ry, width: rw, height: rh, color: hexRgb(it.bg) });
+      const cv = peCover(it);
+      op.drawRectangle(Object.assign(pdfRect(cv.x, cv.y, cv.w, cv.h), { color: hexRgb(it.bg) }));
       if (!it.text) continue;
+      const cw = peCoverW(it), T = pdfRect(it.x, it.y, cw, it.h);
+      const rx = T.x, ry = T.y, rw = T.width, rh = T.height;
       const S = 4, c = document.createElement("canvas");
       c.width = Math.ceil(cw * S); c.height = Math.ceil(it.h * S);
       const ctx = c.getContext("2d"); ctx.scale(S, S);
@@ -220,167 +257,3 @@ document.addEventListener("pointerdown", () => { if (wake.on && ((!wake.lock || 
   };
   if (wake.on) wakeHold();
 }
-
-/* ---------- PowerPoint (.pptx) to PDF ---------- */
-const H2C_URL = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-const PPTX_UMD = "https://cdn.jsdelivr.net/npm/pptx-preview@1.0.7/dist/pptx-preview.umd.js";
-const PPTX_ESM = "https://cdn.jsdelivr.net/npm/pptx-preview@1.0.7/+esm";
-/* the main converter: lays slides out like PowerPoint (text, bullets, tables, charts, shapes) */
-const PPTX_R = "https://cdn.jsdelivr.net/npm/@aiden0z/pptx-renderer@1.4.0/dist/aiden0z-pptx-renderer.browser.es.js";
-let rendererP = null;
-function ensureRenderer() {
-  if (!rendererP) rendererP = (async () => {
-    if (!window.html2canvas) await loadScript(H2C_URL);
-    const m = await import(PPTX_R);
-    if (!m || !m.PptxViewer) throw new Error("renderer missing");
-    return m;
-  })().catch((e) => { rendererP = null; throw e; });
-  return rendererP;
-}
-/* lay out every slide in hostEl with the main converter; returns the slide elements */
-async function layoutSlides(hostEl, buf, W) {
-  const R = await ensureRenderer();
-  hostEl.style.width = W + "px";
-  const viewer = await R.PptxViewer.open(buf.slice(0), hostEl, { zipLimits: R.RECOMMENDED_ZIP_LIMITS, width: W, pdfjs: false, listOptions: { windowed: false } });
-  await waitImages(hostEl);
-  try { await document.fonts.ready; } catch (e) {}
-  await nextFrame(); await nextFrame();
-  const slides = Array.from(hostEl.children).filter((el) => el.offsetWidth > 100 && el.offsetHeight > 50);
-  if (!slides.length) throw new Error("no slides");
-  return { slides, done: () => { try { viewer.destroy && viewer.destroy(); } catch (e) {} } };
-}
-function loadScript(src) {
-  return new Promise((res, rej) => {
-    const s = document.createElement("script");
-    s.src = src; s.async = true;
-    s.onload = () => res(); s.onerror = () => rej(new Error("load " + src));
-    document.head.appendChild(s);
-  });
-}
-let converterP = null;
-function ensureConverter() {
-  if (!converterP) converterP = (async () => {
-    if (!window.html2canvas) await loadScript(H2C_URL);
-    if (!(window.pptxPreview && window.pptxPreview.init)) { try { await loadScript(PPTX_UMD); } catch (e) {} }
-    if (window.pptxPreview && window.pptxPreview.init) return window.pptxPreview;
-    const m = await import(PPTX_ESM);
-    if (!m || !m.init) throw new Error("converter missing");
-    return m;
-  })().catch((e) => { converterP = null; throw e; });
-  return converterP;
-}
-function waitImages(root) {
-  const imgs = Array.from(root.querySelectorAll("img")).filter((i) => !i.complete);
-  return Promise.race([
-    Promise.all(imgs.map((i) => new Promise((r) => { i.onload = i.onerror = r; }))),
-    new Promise((r) => setTimeout(r, 8000))
-  ]);
-}
-const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-let converting = false;
-async function convertPptx(file, buf) {
-  if (converting) { toast("Another presentation is still converting."); return; }
-  converting = true;
-  closeLibrary();
-  const name = await uniqueName(file.name.replace(/\.pptx?$/i, ""));
-  showStatus("Getting the slide converter ready…");
-  const hostEl = document.createElement("div");
-  hostEl.setAttribute("aria-hidden", "true");
-  hostEl.style.cssText = "position:fixed;left:-40000px;top:0;width:1280px;pointer-events:none;background:#fff;color:#000;";
-  document.body.appendChild(hostEl);
-  try {
-    const W = 1280;
-    let H = 720, slides = null, done = () => {}, sharp = 2;
-    try {
-      showStatus("Reading " + name + "…");
-      const r = await layoutSlides(hostEl, buf, W);
-      slides = r.slides; done = r.done;
-      H = Math.round(slides[0].offsetHeight * W / slides[0].offsetWidth);
-    } catch (e) {
-      /* fall back to the simpler converter */
-      hostEl.innerHTML = ""; slides = null; sharp = 1.5;
-    }
-    if (!slides) {
-      const lib = await ensureConverter();
-      let pv = lib.init(hostEl, { width: W, height: H, mode: "list" });
-      await pv.preview(buf.slice(0));
-      const sw = pv.pptx && pv.pptx.width, sh = pv.pptx && pv.pptx.height;
-      if (sw && sh && Math.abs(sh / sw - H / W) > 0.01) {
-        try { pv.destroy && pv.destroy(); } catch (e) {}
-        hostEl.innerHTML = "";
-        H = Math.round(W * sh / sw);
-        pv = lib.init(hostEl, { width: W, height: H, mode: "list" });
-        await pv.preview(buf.slice(0));
-      }
-      await waitImages(hostEl);
-      try { await document.fonts.ready; } catch (e) {}
-      await nextFrame();
-      slides = Array.from(hostEl.querySelectorAll(".pptx-preview-slide-wrapper"));
-      if (!slides.length) throw new Error("no slides");
-    }
-    const out = await PDFLib.PDFDocument.create();
-    out.setTitle(name);
-    const PW = 720, PH = Math.round(720 * H / W * 100) / 100;
-    for (let i = 0; i < slides.length; i++) {
-      showStatus("Converting slide " + (i + 1) + " of " + slides.length + "…");
-      await nextFrame();
-      const c = await window.html2canvas(slides[i], { backgroundColor: "#ffffff", scale: sharp, logging: false, useCORS: true });
-      const jpg = await out.embedJpg(c.toDataURL("image/jpeg", 0.9));
-      c.width = 0; c.height = 0;
-      const pg = out.addPage([PW, PH]);
-      pg.drawImage(jpg, { x: 0, y: 0, width: PW, height: PH });
-    }
-    done();
-    const bytes = await out.save();
-    const id = name + "|" + file.size + "|pptx|" + Date.now().toString(36);
-    const ok = await openDoc(id, name, bytes);
-    if (ok) {
-      await DB.put("files", { id, bytes });
-      const m = await DB.get("meta", id);
-      if (m) { m.size = bytes.length; m.from = "pptx"; DB.put("meta", m); }
-      toast("Converted " + slides.length + (slides.length === 1 ? " slide" : " slides") + " to PDF. Tap Share PDF to save or send it.", 6000);
-    }
-  } catch (e) {
-    if (state.pdf) statusEl.hidden = true;
-    else showStatus("This presentation couldn't be converted.");
-    toast(String(e && e.message).indexOf("load") === 0
-      ? "The slide converter didn't load. Check your connection and try again."
-      : "This presentation couldn't be converted. Try exporting it as PDF from Keynote or PowerPoint.", 7000);
-  } finally {
-    hostEl.remove();
-    converting = false;
-  }
-}
-
-/* ---------- boot ---------- */
-async function openMostRecent() {
-  const metas = (await DB.all("meta")).sort((a, b) => (b.opened || 0) - (a.opened || 0));
-  for (const m of metas) {
-    const f = await DB.get("files", m.id);
-    if (f && await openDoc(m.id, m.name, f.bytes)) return true;
-  }
-  return openSample();
-}
-async function openSample() {
-  if (!window.PDFLib) { showStatus("The PDF engine didn't load. Check your connection and reload the page."); return false; }
-  const s = await makeSample();
-  const id = "sample-welcome", name = "Welcome to Margin";
-  await DB.put("files", { id, bytes: s.bytes });
-  await DB.del("ann", id);
-  return openDoc(id, name, s.bytes, s.ann);
-}
-async function boot() {
-  loadPrefs();
-  renderToolbar();
-  if (!window.pdfjsLib) { showStatus("The PDF engine didn't load. Check your connection and reload the page."); return; }
-  try { pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; } catch (e) {}
-  let last = null;
-  try { last = localStorage.getItem("margin-last"); } catch (e) {}
-  if (last) {
-    const m = await DB.get("meta", last), f = await DB.get("files", last);
-    if (m && f && await openDoc(m.id, m.name, f.bytes)) return;
-  }
-  await openMostRecent();
-}
-boot();
-})();
