@@ -40,7 +40,7 @@ img { max-width: 100%; }
 /* Margin is split into small files so updates stay small. This joins them and starts the app. */
 (async function () {
   const UI = ["ui-01.html", "ui-02.html"];
-  const JS = ["app-01.js", "app-02.js", "app-03.js", "app-04.js", "app-05.js", "app-06.js", "app-07.js", "app-08.js", "app-09.js", "app-10.js", "app-11.js", "app-12.js", "app-13.js", "app-14.js", "app-15.js", "app-16.js", "app-17.js", "app-18.js", "app-19.js", "app-20.js", "app-21.js", "app-22.js"];
+  const JS = ["app-01.js", "app-02.js", "app-03.js", "app-04.js", "app-05.js", "app-06.js", "app-07.js", "app-08.js", "app-09.js", "app-10.js", "app-11.js", "app-12.js", "app-13.js", "app-14.js", "app-15.js", "app-16.js", "app-17.js", "app-18.js", "app-19.js", "app-20.js", "app-21.js", "app-22.js", "app-23.js"];
   const get = (u) => fetch(u, { cache: "no-cache" }).then((r) => { if (!r.ok) throw new Error(u); return r.text(); });
   try {
     const [ui, js] = await Promise.all([Promise.all(UI.map(get)), Promise.all(JS.map(get))]);

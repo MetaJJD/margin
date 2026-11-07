@@ -1,7 +1,7 @@
 {
   "name": "Margin",
   "short_name": "Margin",
-  "description": "A PDF reader and notebook for iPad: write with Apple Pencil, highlight, add notes and share annotated PDFs.",
+  "description": "A PDF reader and notebook for iPad and Windows: write with a pen or mouse, highlight, add notes and share annotated PDFs.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -10,8 +10,39 @@
   "background_color": "#e4e8ee",
   "theme_color": "#2b55c9",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/pdf": [
+          ".pdf"
+        ],
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": [
+          ".pptx"
+        ]
+      }
+    }
   ]
 }
