@@ -214,3 +214,100 @@ if (DESKTOP) {
     });
   }
 }
+
+/* ---------- Underline and Cross out: their own buttons beside Highlight ---------- */
+{
+  const MARKS = [
+    ["ul", "Underline", "Underline: drag across words to underline them (U)", '<svg viewBox="0 0 24 24"><path d="M7 4v7a5 5 0 0 0 10 0V4"/><path d="M4.5 20.5h15" stroke-width="2.4"/></svg>'],
+    ["st", "Cross out", "Cross out: drag across words to strike them through (X)", '<svg viewBox="0 0 24 24"><path d="M16 7.5a4 3 0 0 0-8 .5c0 1.6 1.3 2.4 3 3M8.2 15.5a4 3 0 0 0 7.8-.5c0-1-.4-1.7-1.1-2.2"/><path d="M3.5 12h17" stroke-width="2.4"/></svg>']
+  ];
+  const hlBtn = document.querySelector('.row2 .tool[data-tool="hl"]');
+  const fsHl = document.querySelector('#fsPill [data-fstool="hl"]');
+  const btns = {}, pills = {};
+  const pressed = (v) => state.tool === "hl" && state.hlStyle === v;
+  /* pick Underline or Cross out; tap it again to show or hide its colours */
+  let lastHide = { a: null, t: 0 };
+  const hp = hideToolPop;
+  hideToolPop = function () { if (!toolPop.hidden && window.event && window.event.type === "pointerdown") lastHide = { a: tpAnchor, t: Date.now() }; return hp.apply(this, arguments); };
+  const pick = (v, anchor) => {
+    const again = pressed(v);
+    const wasOpen = (!toolPop.hidden && tpAnchor === anchor) || (lastHide.a === anchor && Date.now() - lastHide.t < 700);
+    if (textEdit) closeTextEdit();
+    if (typeof pe !== "undefined" && pe.cur) peClose(true);
+    if (lassoSel) clearLassoSel();
+    state.tool = "hl"; state.hlStyle = v; savePrefs(); renderToolbar();
+    lastHide = { a: null, t: 0 };
+    if (again && wasOpen) hideToolPop(); else showToolPop(anchor);
+  };
+  let after = hlBtn, fsAfter = fsHl;
+  for (const [v, label, title, icon] of MARKS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "tool"; b.dataset.mark = v;
+    b.setAttribute("aria-pressed", "false"); b.title = title;
+    b.innerHTML = icon + "<span>" + label + "</span>";
+    after.after(b); after = b; btns[v] = b;
+    b.addEventListener("click", () => pick(v, b));
+    if (fsHl) {
+      const f = document.createElement("button");
+      f.type = "button"; f.className = "icon-btn"; f.dataset.fsmark = v;
+      f.setAttribute("aria-label", label); f.title = label;
+      f.innerHTML = icon; f.querySelector("svg").style.fill = "none";
+      fsAfter.after(f); fsAfter = f; pills[v] = f;
+      f.addEventListener("click", () => pick(v, f));
+    }
+  }
+  /* Highlight is the marker again; leaving Underline for Highlight moves the panel too */
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest('.row2 .tool[data-tool="hl"], #fsPill [data-fstool="hl"]');
+    if (!b) return;
+    if (state.hlStyle !== "marker") {
+      state.hlStyle = "marker";
+      if (!toolPop.hidden) hideToolPop();
+    }
+  }, true);
+  /* keys: M highlight, U underline, X cross out */
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t && t.closest && (t.closest("textarea, input, select") || t.isContentEditable)) return;
+    const k = e.key.toLowerCase();
+    if (k === "m") state.hlStyle = "marker";
+    else if (k === "u" || k === "x") { e.preventDefault(); state.tool = "hl"; state.hlStyle = k === "u" ? "ul" : "st"; savePrefs(); renderToolbar(); }
+  }, true);
+  const rt = renderToolbar;
+  renderToolbar = function () {
+    rt.apply(this, arguments);
+    const mark = state.tool === "hl" && state.hlStyle !== "marker";
+    if (hlBtn) hlBtn.setAttribute("aria-pressed", String(state.tool === "hl" && !mark));
+    if (hlBtn) hlBtn.style.setProperty("--tc", state.hlColor);
+    if (fsHl) { const on = state.tool === "hl" && !mark; fsHl.setAttribute("aria-pressed", String(on)); fsHl.style.background = on ? "var(--chip-on)" : ""; fsHl.style.color = on ? "var(--accent)" : ""; fsHl.style.setProperty("--tc", state.hlColor); }
+    for (const [v] of MARKS) {
+      const on = pressed(v);
+      btns[v].setAttribute("aria-pressed", String(on));
+      btns[v].style.setProperty("--tc", state.markColor);
+      if (pills[v]) { pills[v].setAttribute("aria-pressed", String(on)); pills[v].style.background = on ? "var(--chip-on)" : ""; pills[v].style.color = on ? "var(--accent)" : ""; }
+    }
+    /* the style switch inside Highlight's panel isn't needed now */
+    const seg = $("sizes").querySelector(".hlstyle");
+    if (seg) { seg.remove(); if (!$("sizes").childElementCount && !mark) $("sizes").hidden = true; }
+    if (mark) {
+      const sz = $("sizes"); sz.hidden = false;
+      const h = document.createElement("span"); h.className = "tool-hint";
+      h.textContent = state.hlStyle === "ul" ? "Drag across the words to underline." : "Drag across the words to cross them out.";
+      sz.appendChild(h);
+    }
+    /* the panel stays with whichever of the three buttons is picked */
+    if (!toolPop.hidden && state.tool === "hl") {
+      const want = mark ? ((tpAnchor && tpAnchor.closest && tpAnchor.closest("#fsPill")) ? pills[state.hlStyle] : btns[state.hlStyle]) : null;
+      if (want && tpAnchor !== want) tpAnchor = want;
+      if (!mark && tpAnchor && tpAnchor.dataset && (tpAnchor.dataset.mark || tpAnchor.dataset.fsmark)) hideToolPop();
+      else if (toolHasOptions()) placeToolPop(); else hideToolPop();
+    }
+  };
+  renderToolbar();
+  /* two more buttons: tighten the toolbar a little so it still fits an iPad held upright */
+  const css = document.createElement("style");
+  css.textContent = "@media (max-width: 900px) { .row2 { padding-left: 10px; padding-right: 10px; gap: 6px; } .row2 .tool { width: 35px; min-width: 35px; } }\n" +
+    "@media (max-width: 800px) { .row2 .tool { width: 33px; min-width: 33px; } }\n";
+  document.head.appendChild(css);
+}
