@@ -311,3 +311,67 @@ if (DESKTOP) {
     "@media (max-width: 800px) { .row2 .tool { width: 33px; min-width: 33px; } }\n";
   document.head.appendChild(css);
 }
+
+/* while dragging Underline or Cross out, show the finished straight lines on the text, not the wobbly stroke */
+{
+  /* the same rule as markLines, using the page text read when the stroke began */
+  const linesNow = (p, P, style) => {
+    const t = state.text[p.n];
+    if (!t || !t.items) return null;
+    const segs = [];
+    t.items.forEach((it) => {
+      if (typeof it.str !== "string" || !it.str.trim() || !it.width || !it.transform) return;
+      const tx = pdfjsLib.Util.transform(p.vp.transform, it.transform);
+      if (Math.abs(tx[1]) > 0.01 || Math.abs(tx[2]) > 0.01) return;
+      const fh = Math.abs(tx[3]) || Math.hypot(tx[2], tx[3]) || 10;
+      const x0 = tx[4], base = tx[5], w = it.width * p.vp.scale;
+      const top = base - fh * 1.0, bot = base + fh * 0.45;
+      let ax = Infinity, bx = -Infinity;
+      for (const q of P) if (q[1] >= top && q[1] <= bot && q[0] >= x0 - 2 && q[0] <= x0 + w + 2) { ax = Math.min(ax, q[0]); bx = Math.max(bx, q[0]); }
+      if (ax > bx) return;
+      const L = it.str.length, cw = w / L;
+      let i0 = Math.max(0, Math.min(L, Math.floor((ax - x0) / cw + 0.35)));
+      let i1 = Math.max(0, Math.min(L, Math.ceil((bx - x0) / cw - 0.35)));
+      while (i0 < i1 && it.str[i0] === " ") i0++;
+      while (i1 > i0 && it.str[i1 - 1] === " ") i1--;
+      if (i1 <= i0) return;
+      segs.push({ x1: x0 + i0 * cw, x2: x0 + i1 * cw, base, fh });
+    });
+    segs.sort((a, b) => a.base - b.base || a.x1 - b.x1);
+    const lines = [];
+    for (const sg of segs) {
+      const ln = lines.find((l) => Math.abs(l.base - sg.base) < sg.fh * 0.3);
+      if (ln && sg.x1 - ln.x2 < sg.fh * 0.9) { ln.x2 = Math.max(ln.x2, sg.x2); ln.x1 = Math.min(ln.x1, sg.x1); ln.fh = Math.max(ln.fh, sg.fh); }
+      else lines.push({ x1: sg.x1, x2: sg.x2, base: sg.base, fh: sg.fh });
+    }
+    return lines.map((l) => ({ x1: l.x1, x2: l.x2, y: style === "ul" ? l.base + l.fh * 0.13 : l.base - l.fh * 0.3, w: Math.max(0.7, Math.min(2.4, l.fh * 0.075)) }));
+  };
+  let cache = { item: null, n: -1, out: [] };
+  const preview = (a) => {
+    const it = a.item, P = it.pts;
+    if (cache.item === it && cache.n === P.length) return cache.out;
+    let lines = linesNow(a.p, P, a.markStyle) || [];
+    const out = lines.map((ln) => ({ type: "pen", color: it.color, w: ln.w, pts: [[ln.x1, ln.y, 0.65], [ln.x2, ln.y, 0.65]] }));
+    if (!out.length && P.length > 1) {
+      /* no text under the pen (yet): a straight level line where it will land */
+      let y = 0; for (const q of P) y += q[1]; y /= P.length;
+      let x1 = Infinity, x2 = -Infinity; for (const q of P) { x1 = Math.min(x1, q[0]); x2 = Math.max(x2, q[0]); }
+      if (x2 - x1 > 1) out.push({ type: "pen", color: it.color, w: 1.4, pts: [[x1, y, 0.65], [x2, y, 0.65]] });
+    }
+    cache = { item: it, n: P.length, out };
+    return out;
+  };
+  const isMarkLive = (it) => it && active && active.markStyle && it === active.item;
+  const dlm = drawLayer;
+  drawLayer = function (ctx, items, live) {
+    if (!isMarkLive(live)) return dlm.apply(this, arguments);
+    const r = dlm.call(this, ctx, items);
+    for (const ln of preview(active)) drawItem(ctx, ln);
+    return r;
+  };
+  const sgm = segment;
+  segment = function (ctx, k, ox, oy, it) {
+    if (!isMarkLive(it)) return sgm.apply(this, arguments);
+    if (!active.raf) active.raf = requestAnimationFrame(() => { if (active) { active.raf = 0; drawInk(active.p, active.item); } });
+  };
+}
