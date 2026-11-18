@@ -264,11 +264,12 @@ document.addEventListener("pointerdown", () => { if (wake.on && ((!wake.lock || 
   css.textContent =
     ".toc-row { display: flex; align-items: flex-start; }\n" +
     ".toc-row .toc-item { flex: 1; min-width: 0; }\n" +
-    ".toc-fold { flex: none; width: 28px; height: 34px; margin-right: -6px; border: 0; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; display: grid; place-items: center; padding: 0; }\n" +
+    ".toc-list, .toc-list button { touch-action: manipulation; }\n" +
+    ".toc-fold { flex: none; width: 34px; height: 36px; margin-right: -8px; margin-top: -1px; border: 0; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; display: grid; place-items: center; padding: 0; }\n" +
     ".toc-fold:hover { background: var(--chip); color: var(--fg); }\n" +
     ".toc-fold svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }\n" +
     ".toc-fold[aria-expanded=true] svg { transform: rotate(90deg); }\n" +
-    ".toc-nofold { flex: none; width: 28px; margin-right: -6px; }\n" +
+    ".toc-nofold { flex: none; width: 34px; margin-right: -8px; }\n" +
     ".toc-row.d1 .toc-fold, .toc-row.d1 .toc-nofold { margin-left: 12px; }\n" +
     ".toc-row.d2 .toc-fold, .toc-row.d2 .toc-nofold { margin-left: 24px; }\n" +
     ".toc-row.d3 .toc-fold, .toc-row.d3 .toc-nofold, .toc-row.d4 .toc-fold, .toc-row.d4 .toc-nofold { margin-left: 36px; }\n" +
@@ -280,7 +281,8 @@ document.addEventListener("pointerdown", () => { if (wake.on && ((!wake.lock || 
   document.head.appendChild(css);
   const CHEV = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
   const open = {}; /* per file: which chapters are unfolded */
-  let rows = [];
+  let rows = [], down = null, quick = 0;
+  const flip = (i) => { const s = open[state.id]; if (s.has(i)) s.delete(i); else s.add(i); apply(); };
   const kids = (i) => { const its = toc.items; return i + 1 < its.length && its[i + 1].depth > its[i].depth; };
   function apply() {
     const set = open[state.id];
@@ -337,7 +339,13 @@ document.addEventListener("pointerdown", () => { if (wake.on && ((!wake.lock || 
         fold = document.createElement("button");
         fold.type = "button"; fold.className = "toc-fold"; fold.innerHTML = CHEV;
         fold.setAttribute("aria-label", "Show or hide the sections of " + it.title);
-        fold.onclick = (e) => { e.stopPropagation(); const s = open[state.id]; if (s.has(i)) s.delete(i); else s.add(i); apply(); };
+        fold.onclick = (e) => { e.stopPropagation(); if (e.detail && Date.now() - quick < 700) return; flip(i); };
+        fold.onpointerdown = (e) => { down = { id: e.pointerId, x: e.clientX, y: e.clientY }; };
+        fold.onpointerup = (e) => {
+          /* react the moment the finger lifts; don't wait for the iPad's double-tap check */
+          if (!down || down.id !== e.pointerId || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) return;
+          down = null; quick = Date.now(); flip(i);
+        };
         li.insertBefore(fold, b);
       } else {
         const sp = document.createElement("span"); sp.className = "toc-nofold"; li.insertBefore(sp, b);
