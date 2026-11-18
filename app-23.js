@@ -162,7 +162,6 @@ async function convertPptx(file, buf) {
     const flat = [];
     (function walk(l, depth) {
       for (const it of l || []) {
-        if (flat.length >= 800) return;
         flat.push({ title: (it.title || "Untitled").trim(), depth, dest: it.dest, page: null });
         if (it.items && it.items.length) walk(it.items, depth + 1);
       }
@@ -174,13 +173,21 @@ async function convertPptx(file, buf) {
       if (!refs.has(k)) refs.set(k, pdf.getPageIndex(ref).then((i) => i + 1, () => null));
       return refs.get(k);
     };
-    await Promise.all(flat.map(async (f) => {
+    /* named links: fetch them all in one go when there are many */
+    let named = null;
+    if (flat.filter((f) => typeof f.dest === "string").length > 50) { try { named = await pdf.getDestinations(); } catch (e) {} }
+    const one = async (f) => {
       try {
-        const d = typeof f.dest === "string" ? await pdf.getDestination(f.dest) : f.dest;
+        const d = typeof f.dest === "string" ? (named && named[f.dest]) || await pdf.getDestination(f.dest) : f.dest;
         if (Array.isArray(d) && d[0] != null) f.page = await pageOf(d[0]);
       } catch (e) {}
       delete f.dest;
-    }));
+    };
+    /* in batches, so a list with thousands of chapters doesn't flood the PDF reader */
+    for (let i = 0; i < flat.length; i += 400) {
+      await Promise.all(flat.slice(i, i + 400).map(one));
+      if (docId !== state.id) return [];
+    }
     if (docId !== state.id) return [];
     toc.docId = docId; toc.items = flat;
     return flat;
@@ -250,8 +257,9 @@ async function convertPptx(file, buf) {
         const add = [];
         items.forEach((it, i) => { if (it.depth === lvl && kids(i)) add.push(i); });
         if (!add.length) break;
+        const adding = new Set(add);
         let shown = 0, hide = Infinity;
-        items.forEach((it, i) => { if (it.depth <= hide) hide = Infinity; if (it.depth > hide) return; shown++; if (kids(i) && !set.has(i) && !add.includes(i)) hide = it.depth; });
+        items.forEach((it, i) => { if (it.depth <= hide) hide = Infinity; if (it.depth > hide) return; shown++; if (kids(i) && !set.has(i) && !adding.has(i)) hide = it.depth; });
         if (shown > 15 && !(lvl === 0 && add.length === 1)) break;
         add.forEach((i) => set.add(i));
       }
