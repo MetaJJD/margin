@@ -257,3 +257,113 @@ document.addEventListener("pointerdown", () => { if (wake.on && ((!wake.lock || 
   };
   if (wake.on) wakeHold();
 }
+
+/* ---------- contents: fold and unfold chapters ---------- */
+{
+  const css = document.createElement("style");
+  css.textContent =
+    ".toc-row { display: flex; align-items: flex-start; }\n" +
+    ".toc-row .toc-item { flex: 1; min-width: 0; }\n" +
+    ".toc-fold { flex: none; width: 28px; height: 34px; margin-right: -6px; border: 0; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; display: grid; place-items: center; padding: 0; }\n" +
+    ".toc-fold:hover { background: var(--chip); color: var(--fg); }\n" +
+    ".toc-fold svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }\n" +
+    ".toc-fold[aria-expanded=true] svg { transform: rotate(90deg); }\n" +
+    ".toc-nofold { flex: none; width: 28px; margin-right: -6px; }\n" +
+    ".toc-row.d1 .toc-fold, .toc-row.d1 .toc-nofold { margin-left: 12px; }\n" +
+    ".toc-row.d2 .toc-fold, .toc-row.d2 .toc-nofold { margin-left: 24px; }\n" +
+    ".toc-row.d3 .toc-fold, .toc-row.d3 .toc-nofold, .toc-row.d4 .toc-fold, .toc-row.d4 .toc-nofold { margin-left: 36px; }\n" +
+    ".toc-row .toc-item.d1, .toc-row .toc-item.d2, .toc-row .toc-item.d3, .toc-row .toc-item.d4 { padding-left: 8px; }\n" +
+    ".toc-row.here .toc-item { background: var(--chip-on); color: var(--accent); }\n" +
+    ".toc-bar { display: flex; justify-content: flex-end; gap: 4px; padding: 2px 2px 6px; }\n" +
+    ".toc-bar button { border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 600; padding: 4px 8px; border-radius: 8px; cursor: pointer; }\n" +
+    ".toc-bar button:hover { background: var(--chip); }\n";
+  document.head.appendChild(css);
+  const CHEV = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+  const open = {}; /* per file: which chapters are unfolded */
+  let rows = [];
+  const kids = (i) => { const its = toc.items; return i + 1 < its.length && its[i + 1].depth > its[i].depth; };
+  function apply() {
+    const set = open[state.id];
+    let hideBelow = Infinity;
+    rows.forEach((r, i) => {
+      const d = toc.items[i].depth;
+      if (d <= hideBelow) hideBelow = Infinity;
+      r.li.hidden = d > hideBelow;
+      if (r.fold) {
+        const on = set.has(i);
+        r.fold.setAttribute("aria-expanded", String(on));
+        if (!on && !r.li.hidden) hideBelow = d;
+      }
+    });
+  }
+  /* the chapter you're reading now, with its parents unfolded */
+  function hereIndex() {
+    const pg = state.curPage || 1;
+    let best = -1;
+    toc.items.forEach((it, i) => { if (it.page && it.page <= pg && (best < 0 || it.page >= toc.items[best].page)) best = i; });
+    return best;
+  }
+  function markHere(unfold) {
+    if (!rows.length || toc.docId !== state.id) return;
+    const h = hereIndex();
+    rows.forEach((r, i) => r.li.classList.toggle("here", i === h));
+    if (unfold && h >= 0) {
+      let d = toc.items[h].depth;
+      for (let i = h - 1; i >= 0 && d > 0; i--) if (toc.items[i].depth < d) { open[state.id].add(i); d = toc.items[i].depth; }
+      apply();
+    }
+  }
+  const rt = renderToc;
+  renderToc = async function () {
+    await rt.apply(this, arguments);
+    const list = $("tocList");
+    rows = [];
+    if (sideView !== "toc" || toc.docId !== state.id || !toc.items || !toc.items.length) return;
+    const lis = Array.from(list.children);
+    if (lis.length !== toc.items.length) return;
+    const many = toc.items.length > 15;
+    if (!open[state.id]) {
+      /* short lists open fully; long ones start with only the main chapters showing */
+      open[state.id] = new Set();
+      if (!many) toc.items.forEach((it, i) => { if (kids(i)) open[state.id].add(i); });
+    }
+    let anyKids = false;
+    lis.forEach((li, i) => {
+      const it = toc.items[i], b = li.firstElementChild;
+      li.className = "toc-row d" + Math.min(it.depth, 4);
+      let fold = null;
+      if (kids(i)) {
+        anyKids = true;
+        fold = document.createElement("button");
+        fold.type = "button"; fold.className = "toc-fold"; fold.innerHTML = CHEV;
+        fold.setAttribute("aria-label", "Show or hide the sections of " + it.title);
+        fold.onclick = (e) => { e.stopPropagation(); const s = open[state.id]; if (s.has(i)) s.delete(i); else s.add(i); apply(); };
+        li.insertBefore(fold, b);
+      } else {
+        const sp = document.createElement("span"); sp.className = "toc-nofold"; li.insertBefore(sp, b);
+      }
+      rows.push({ li, fold });
+    });
+    if (anyKids) {
+      const bar = document.createElement("li"); bar.className = "toc-bar";
+      const ex = document.createElement("button"); ex.type = "button"; ex.textContent = "Expand all";
+      const co = document.createElement("button"); co.type = "button"; co.textContent = "Collapse all";
+      ex.onclick = () => { toc.items.forEach((it, i) => { if (kids(i)) open[state.id].add(i); }); apply(); };
+      co.onclick = () => { open[state.id].clear(); apply(); };
+      bar.append(ex, co);
+      list.insertBefore(bar, list.firstChild);
+    } else {
+      rows.forEach((r) => { if (r.li.firstElementChild.className === "toc-nofold") r.li.firstElementChild.remove(); });
+    }
+    apply();
+    markHere(true);
+    const h = rows.find((r) => r.li.classList.contains("here"));
+    if (h && !h.li.hidden) h.li.scrollIntoView({ block: "nearest" });
+  };
+  /* keep the "you are here" mark following the page you're on */
+  let last = 0;
+  setInterval(() => {
+    if (sideView !== "toc" || thumbsEl.hidden || !rows.length) return;
+    if (state.curPage !== last) { last = state.curPage; markHere(false); }
+  }, 600);
+}
