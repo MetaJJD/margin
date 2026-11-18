@@ -145,6 +145,7 @@ async function convertPptx(file, buf) {
     ".toc-row.here .toc-item { background: var(--chip-on); color: var(--accent); }\n" +
     ".toc-bar { display: flex; justify-content: flex-end; gap: 4px; padding: 2px 2px 6px; }\n" +
     ".toc-bar button { border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 600; padding: 4px 8px; border-radius: 8px; cursor: pointer; }\n" +
+    ".toc-retry { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 600; padding: 0; cursor: pointer; }\n" +
     "@media (hover: hover) { .toc-fold:hover, .toc-bar button:hover { background: var(--chip); } }\n";
   document.head.appendChild(css);
   const CHEV = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
@@ -173,20 +174,19 @@ async function convertPptx(file, buf) {
       if (!refs.has(k)) refs.set(k, pdf.getPageIndex(ref).then((i) => i + 1, () => null));
       return refs.get(k);
     };
-    /* named links: fetch them all in one go when there are many */
-    let named = null;
-    if (flat.filter((f) => typeof f.dest === "string").length > 50) { try { named = await pdf.getDestinations(); } catch (e) {} }
     const one = async (f) => {
       try {
-        const d = typeof f.dest === "string" ? (named && named[f.dest]) || await pdf.getDestination(f.dest) : f.dest;
+        const d = typeof f.dest === "string" ? await pdf.getDestination(f.dest) : f.dest;
         if (Array.isArray(d) && d[0] != null) f.page = await pageOf(d[0]);
       } catch (e) {}
       delete f.dest;
     };
     /* in batches, so a list with thousands of chapters doesn't flood the PDF reader */
-    for (let i = 0; i < flat.length; i += 400) {
-      await Promise.all(flat.slice(i, i + 400).map(one));
+    for (let i = 0; i < flat.length; i += 200) {
+      await Promise.all(flat.slice(i, i + 200).map(one));
       if (docId !== state.id) return [];
+      const msg = list.querySelector(".toc-empty");
+      if (msg && flat.length > 400) msg.textContent = "Loading chapters… " + Math.min(flat.length, i + 200) + " of " + flat.length;
     }
     if (docId !== state.id) return [];
     toc.docId = docId; toc.items = flat;
@@ -244,7 +244,14 @@ async function convertPptx(file, buf) {
     const my = ++seq;
     if (!state.pdf) { list.innerHTML = ""; return; }
     if (toc.docId !== state.id || !toc.items) list.innerHTML = '<li class="toc-empty">Loading chapters…</li>';
-    const items = await loadToc();
+    let items;
+    try { items = await loadToc(); }
+    catch (e) {
+      if (my !== seq) return;
+      list.innerHTML = '<li class="toc-empty">Margin couldn’t read this PDF’s chapter list. <button type="button" class="toc-retry">Try again</button></li>';
+      list.querySelector(".toc-retry").onclick = () => renderToc();
+      return;
+    }
     if (my !== seq || sideView !== "toc") return;
     if (!items.length) {
       list.innerHTML = '<li class="toc-empty">This PDF has no built-in chapter list. Use <b>Favorites</b> to mark the pages you want to find again.</li>';
